@@ -12,6 +12,7 @@ const adminLinks = [
   { href: '/scanner', label: 'QR Scanner', icon: '⊞' },
   { href: '/interactions', label: 'Interactions', icon: '◎' },
   { href: '/reports', label: 'Reports', icon: '▤' },
+  { href: '/users', label: 'Users', icon: '◆' },
   { href: '/settings', label: 'Settings', icon: '⚙' },
 ];
 
@@ -31,10 +32,16 @@ export default function Sidebar({ user, onLogout }) {
     <aside className={`bg-white border-r border-gray-200 flex flex-col h-screen sticky top-0 transition-all ${collapsed ? 'w-16' : 'w-56'}`}>
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         {!collapsed && (
-          <div>
-            <h1 className="text-lg font-bold text-indigo-600">CorpMarketer</h1>
-            <p className="text-xs text-gray-400">Event Platform</p>
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="VerifyAI" className="h-8 w-8 object-contain" />
+            <div>
+              <h1 className="text-lg font-bold text-indigo-600">CorpMarketer</h1>
+              <p className="text-xs text-gray-400">Event Platform</p>
+            </div>
           </div>
+        )}
+        {collapsed && (
+          <img src="/logo.png" alt="VerifyAI" className="h-8 w-8 object-contain" />
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}

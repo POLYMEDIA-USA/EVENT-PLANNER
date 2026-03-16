@@ -8,9 +8,8 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const [settings, setSettings] = useState({
     company_name: '', company_logo_url: '', app_url: '',
-    smtp_host: '', smtp_port: '', smtp_user: '', smtp_pass: '',
+    smtp_host: '', smtp_port: '587', smtp_user: '', smtp_pass: '', smtp_from: '',
   });
-  const [users, setUsers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -21,17 +20,10 @@ export default function SettingsPage() {
 
   const fetchData = async () => {
     try {
-      const [settingsRes, usersRes] = await Promise.all([
-        fetch('/api/settings', { headers }),
-        fetch('/api/settings/users', { headers }),
-      ]);
-      if (settingsRes.ok) {
-        const data = await settingsRes.json();
+      const res = await fetch('/api/settings', { headers });
+      if (res.ok) {
+        const data = await res.json();
         setSettings(prev => ({ ...prev, ...data }));
-      }
-      if (usersRes.ok) {
-        const data = await usersRes.json();
-        setUsers(data.users || []);
       }
     } catch (err) { console.error(err); }
   };
@@ -43,14 +35,6 @@ export default function SettingsPage() {
     if (res.ok) setMessage('Settings saved!');
     else setMessage('Failed to save settings');
     setSaving(false);
-  };
-
-  const toggleRole = async (userId, newRole) => {
-    const res = await fetch('/api/settings/users', {
-      method: 'PUT', headers,
-      body: JSON.stringify({ user_id: userId, role: newRole }),
-    });
-    if (res.ok) fetchData();
   };
 
   const set = (field) => (e) => setSettings({ ...settings, [field]: e.target.value });
@@ -91,6 +75,9 @@ export default function SettingsPage() {
         {/* Email Settings */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Email (SMTP)</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            For Google Workspace / Gmail: use <strong>smtp.gmail.com</strong>, port <strong>587</strong>, and an <a href="https://myaccount.google.com/apppasswords" target="_blank" className="text-indigo-600 underline">App Password</a>.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label>
@@ -105,13 +92,21 @@ export default function SettingsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">SMTP User</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">SMTP User (email address)</label>
               <input type="text" value={settings.smtp_user} onChange={set('smtp_user')}
+                placeholder="sales@verifyai.net"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Password (App Password)</label>
               <input type="password" value={settings.smtp_pass} onChange={set('smtp_pass')}
+                placeholder="16-character app password"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">From Address (optional, defaults to SMTP user)</label>
+              <input type="text" value={settings.smtp_from || ''} onChange={set('smtp_from')}
+                placeholder="sales@verifyai.net"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             </div>
           </div>
@@ -128,47 +123,6 @@ export default function SettingsPage() {
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
 
-        {/* User Management */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-800">Users</h2>
-          </div>
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Organization</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Role</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id} className="border-b border-gray-100">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{u.full_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{u.organization_name}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-                      u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => toggleRole(u.id, u.role === 'admin' ? 'sales_rep' : 'admin')}
-                      className="text-xs text-indigo-600 hover:text-indigo-800"
-                    >
-                      Make {u.role === 'admin' ? 'Sales Rep' : 'Admin'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
     </AppShell>
   );

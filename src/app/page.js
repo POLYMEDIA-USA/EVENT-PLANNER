@@ -54,6 +54,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
+          <img src="/logo.png" alt="VerifyAI" className="h-12 mx-auto mb-3" />
           <h1 className="text-3xl font-bold text-indigo-600">CorpMarketer</h1>
           <p className="text-gray-500 mt-1">Event Lead-Tracking Platform</p>
         </div>
@@ -121,14 +122,14 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{mode === 'login' ? 'Email or Username' : 'Email'}</label>
               <input
-                type="email"
+                type={mode === 'login' ? 'text' : 'email'}
                 value={form.email}
                 onChange={set('email')}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="john@acme.com"
+                placeholder={mode === 'login' ? 'admin or john@acme.com' : 'john@acme.com'}
               />
             </div>
 

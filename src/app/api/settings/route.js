@@ -36,6 +36,11 @@ export async function POST(request) {
       updates.smtp_pass = current.smtp_pass;
     }
 
+    // Trim whitespace from all string values
+    for (const key in updates) {
+      if (typeof updates[key] === 'string') updates[key] = updates[key].trim();
+    }
+
     const merged = { ...current, ...updates, updated_at: new Date().toISOString() };
     await saveSettings(merged);
 

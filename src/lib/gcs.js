@@ -55,3 +55,6 @@ export async function saveInteractions(data) { return writeJSON('interactions.js
 
 export async function getSettings() { return readJSON('settings.json'); }
 export async function saveSettings(data) { return writeJSON('settings.json', data); }
+
+export async function getEmailLogs() { return readJSON('email_logs.json'); }
+export async function saveEmailLogs(data) { return writeJSON('email_logs.json', data); }
