@@ -1,0 +1,229 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@/components/AuthProvider';
+import AppShell from '@/components/AppShell';
+
+export default function ScannerPage() {
+  const { user } = useAuth();
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState('');
+  const [manualCode, setManualCode] = useState('');
+  const scanIntervalRef = useRef(null);
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  const startCamera = async () => {
+    try {
+      setError('');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        setScanning(true);
+        // Start scanning loop using BarcodeDetector API
+        startScanLoop();
+      }
+    } catch (err) {
+      setError('Camera access denied. Use manual entry below.');
+    }
+  };
+
+  const startScanLoop = () => {
+    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+
+    scanIntervalRef.current = setInterval(async () => {
+      if (!videoRef.current || !canvasRef.current) return;
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+
+      try {
+        if ('BarcodeDetector' in window) {
+          const detector = new BarcodeDetector({ formats: ['qr_code'] });
+          const barcodes = await detector.detect(canvas);
+          if (barcodes.length > 0) {
+            handleQRResult(barcodes[0].rawValue);
+          }
+        }
+      } catch (e) {
+        // BarcodeDetector not supported, rely on manual entry
+      }
+    }, 500);
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(t => t.stop());
+    }
+    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+    setScanning(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  const handleQRResult = async (data) => {
+    stopCamera();
+
+    // Check in via API
+    const res = await fetch('/api/interactions', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        qr_data: data,
+        interaction_type: 'qr_scan',
+        event_id: JSON.parse(localStorage.getItem('cm_event') || '{}').id || '',
+        notes: 'Checked in via QR scan',
+      }),
+    });
+
+    if (res.ok) {
+      const iData = await res.json();
+      setResult({ success: true, interaction: iData.interaction, qr_data: data });
+    } else {
+      const err = await res.json();
+      setResult({ success: false, error: err.error });
+    }
+  };
+
+  const handleManualEntry = () => {
+    if (!manualCode.trim()) return;
+    handleQRResult(manualCode.trim());
+  };
+
+  const addNotes = async () => {
+    if (!result?.interaction || !notes.trim()) return;
+
+    await fetch('/api/interactions', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        customer_id: result.interaction.customer_id,
+        interaction_type: 'manual_note',
+        event_id: result.interaction.event_id,
+        notes,
+      }),
+    });
+
+    setNotes('');
+    alert('Notes saved!');
+  };
+
+  const reset = () => {
+    setResult(null);
+    setNotes('');
+    setManualCode('');
+    setError('');
+  };
+
+  return (
+    <AppShell>
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">QR Scanner</h1>
+
+        {!result && (
+          <>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="relative bg-black rounded-lg overflow-hidden mb-4" style={{ aspectRatio: '4/3' }}>
+                <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+                <canvas ref={canvasRef} className="hidden" />
+                {!scanning && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <button onClick={startCamera}
+                      className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
+                      Start Scanner
+                    </button>
+                  </div>
+                )}
+                {scanning && (
+                  <div className="absolute top-4 right-4">
+                    <button onClick={stopCamera} className="px-3 py-1 bg-red-600 text-white text-sm rounded">
+                      Stop
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {error && <p className="text-sm text-amber-600 mb-4">{error}</p>}
+
+              <div className="border-t border-gray-200 pt-4">
+                <p className="text-sm text-gray-500 mb-2">Or enter QR code data manually:</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    placeholder="CORPMARKETER:customer-id:token"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button onClick={handleManualEntry}
+                    className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
+                    Check In
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {result && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            {result.success ? (
+              <>
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-green-600 text-2xl font-bold">&#10003;</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Checked In!</h2>
+                  <p className="text-gray-500 mt-1">Guest has been marked as attended</p>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Interaction Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    placeholder="Add notes about this interaction..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button onClick={addNotes} disabled={!notes.trim()}
+                    className="mt-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                    Save Notes
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-red-600 text-2xl font-bold">&#10007;</span>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Scan Failed</h2>
+                <p className="text-gray-500 mt-1">{result.error}</p>
+              </div>
+            )}
+
+            <button onClick={reset}
+              className="w-full mt-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm">
+              Scan Another
+            </button>
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}
