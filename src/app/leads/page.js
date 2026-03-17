@@ -155,7 +155,8 @@ export default function LeadsPage() {
               className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -199,6 +200,46 @@ export default function LeadsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden">
+            {loading ? (
+              <p className="p-6 text-center text-gray-400">Loading...</p>
+            ) : filtered.length === 0 ? (
+              <p className="p-6 text-center text-gray-400">No leads yet. Click &quot;Add Lead&quot; to get started.</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {filtered.map(c => (
+                  <div key={c.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{c.full_name}</p>
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
+                        { possible: 'bg-blue-100 text-blue-700', invited: 'bg-amber-100 text-amber-700',
+                          accepted: 'bg-green-100 text-green-700', declined: 'bg-red-100 text-red-700',
+                          attended: 'bg-purple-100 text-purple-700' }[c.status] || 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {c.status}
+                      </span>
+                    </div>
+                    {(c.title || c.company_name) && (
+                      <p className="text-xs text-gray-500 truncate">
+                        {c.title}{c.title && c.company_name ? ' · ' : ''}{c.company_name}
+                      </p>
+                    )}
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      {c.email && <div className="col-span-2"><dt className="text-gray-400 inline">Email:</dt> <dd className="text-gray-700 inline truncate">{c.email}</dd></div>}
+                      {c.phone && <div><dt className="text-gray-400 inline">Phone:</dt> <dd className="text-gray-700 inline">{c.phone}</dd></div>}
+                      {c.added_by_name && <div><dt className="text-gray-400 inline">Added by:</dt> <dd className="text-gray-700 inline">{c.added_by_name}</dd></div>}
+                    </dl>
+                    <div className="flex gap-4 pt-1">
+                      <button onClick={() => handleEdit(c)} className="text-xs text-indigo-600 font-medium">Edit</button>
+                      <button onClick={() => handleDelete(c.id)} className="text-xs text-red-500 font-medium">Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

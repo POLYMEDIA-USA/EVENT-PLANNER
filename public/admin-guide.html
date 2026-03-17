@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CorpMarketer — Admin Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      color: #1a1a2e;
+      background: #f7f8fc;
+    }
+
+    .page-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);
+      color: #fff;
+      padding: 48px 24px 40px;
+      margin-bottom: 48px;
+    }
+    header .inner { max-width: 860px; margin: 0 auto; }
+    header .label {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 3px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    header h1 { font-size: 2.1rem; font-weight: 700; margin-bottom: 8px; }
+    header p  { font-size: 1.05rem; opacity: .85; }
+
+    /* ── Headings ── */
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 48px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    h3 {
+      font-weight: 700;
+      color: #4f46e5;
+      margin: 22px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-size: .85rem;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+
+    /* ── Action cards ── */
+    .action-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 0;
+      margin-bottom: 20px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .action-card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 24px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .action-card-header .icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .icon-blue   { background: #dbeafe; }
+    .icon-green  { background: #dcfce7; }
+    .icon-purple { background: #ede9fe; }
+    .icon-orange { background: #ffedd5; }
+    .icon-teal   { background: #ccfbf1; }
+    .icon-red    { background: #fee2e2; }
+    .icon-amber  { background: #fef3c7; }
+    .icon-indigo { background: #e0e7ff; }
+
+    .action-card-header .title-wrap h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+    .action-card-header .title-wrap .trigger {
+      font-size: .82rem;
+      color: #64748b;
+    }
+    .action-card-body { padding: 20px 24px; }
+
+    /* ── Field list ── */
+    .field-list { list-style: none; padding: 0; }
+    .field-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .field-list li:last-child { border-bottom: none; }
+    .field-name {
+      font-weight: 600;
+      color: #0f172a;
+      min-width: 190px;
+      flex-shrink: 0;
+      font-size: .95rem;
+    }
+    .field-desc { color: #475569; font-size: .9rem; }
+    .req { color: #ef4444; font-size: .75rem; font-weight: 700; margin-left: 4px; }
+
+    /* ── Callouts ── */
+    .callout {
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: .93rem;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .callout.info  { background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e40af; }
+    .callout.warn  { background: #fffbeb; border-left: 4px solid #f59e0b; color: #92400e; }
+    .callout.danger{ background: #fef2f2; border-left: 4px solid #ef4444; color: #991b1b; }
+    .callout.tip   { background: #f0fdf4; border-left: 4px solid #22c55e; color: #166534; }
+
+    /* ── Tables ── */
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; margin: 12px 0; }
+    thead tr { background: #312e81; color: #fff; }
+    thead th { padding: 10px 14px; text-align: left; font-weight: 600; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    tbody td { padding: 9px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: .78rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-indigo { background: #e0e7ff; color: #3730a3; }
+    .badge-amber  { background: #fef3c7; color: #92400e; }
+    .badge-gray   { background: #f1f5f9; color: #475569; }
+    .badge-green  { background: #dcfce7; color: #166534; }
+
+    /* ── Tab cards ── */
+    .tab-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .tab-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .tab-card .tab-icon { font-size: 1.5rem; margin-bottom: 6px; }
+    .tab-card .tab-name { font-weight: 700; font-size: .9rem; color: #0f172a; }
+    .tab-card .tab-desc { font-size: .8rem; color: #64748b; margin-top: 4px; }
+
+    /* ── Steps ── */
+    ol.steps { padding-left: 22px; }
+    ol.steps li { margin-bottom: 10px; }
+
+    p { margin-bottom: 12px; }
+
+    /* ── Workflow ── */
+    .workflow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .wf-step {
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: .85rem;
+      font-weight: 600;
+      color: #334155;
+      text-align: center;
+    }
+    .wf-step.admin { background: #e0e7ff; color: #3730a3; }
+    .wf-step.sup { background: #fef3c7; color: #92400e; }
+    .wf-arrow { color: #94a3b8; font-size: 1.1rem; }
+
+    footer {
+      text-align: center;
+      color: #94a3b8;
+      font-size: .85rem;
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="inner">
+    <div class="label">Admin Guide</div>
+    <h1>CorpMarketer</h1>
+    <p>Full administrator reference — complete platform management</p>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+  <!-- Overview -->
+  <div class="card">
+    <p>As an <strong>Admin</strong>, you have full access to every feature in CorpMarketer. You can manage events, leads, invitations, email campaigns, QR check-ins, interactions, reports, user accounts, and system settings.</p>
+    <p><strong>Login URL:</strong> <code style="background:#f1f5f9;padding:2px 8px;border-radius:5px;">https://your-app-url.run.app</code></p>
+  </div>
+
+  <!-- Signing In -->
+  <h2>Signing In</h2>
+  <div class="card">
+    <ol class="steps">
+      <li>Navigate to the app URL.</li>
+      <li>Enter your <strong>Email / Username</strong> and <strong>Password</strong>.</li>
+      <li>Click <strong>"Sign In"</strong>.</li>
+    </ol>
+    <div class="callout info" style="margin-top:14px;">
+      <span class="callout-icon">🔑</span>
+      <div>The default admin account is <strong>admin</strong> / <strong>admin123!</strong>. Change this password immediately after first login by having another admin update it in the Users page.</div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <h2>Navigation Overview</h2>
+  <p>Admins see all nine navigation items in the sidebar:</p>
+  <div class="tab-row">
+    <div class="tab-card">
+      <div class="tab-icon">⌂</div>
+      <div class="tab-name">Dashboard</div>
+      <div class="tab-desc">Stats &amp; event selector</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">◈</div>
+      <div class="tab-name">Events</div>
+      <div class="tab-desc">Create &amp; manage events</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">◉</div>
+      <div class="tab-name">Leads</div>
+      <div class="tab-desc">All leads across orgs</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">✉</div>
+      <div class="tab-name">Invited</div>
+      <div class="tab-desc">Promotions &amp; email campaigns</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">⊞</div>
+      <div class="tab-name">QR Scanner</div>
+      <div class="tab-desc">Event check-in scanning</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">◎</div>
+      <div class="tab-name">Interactions</div>
+      <div class="tab-desc">All interaction logs</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">▤</div>
+      <div class="tab-name">Reports</div>
+      <div class="tab-desc">Stats, tables &amp; email logs</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">◆</div>
+      <div class="tab-name">Users</div>
+      <div class="tab-desc">Manage user accounts</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">⚙</div>
+      <div class="tab-name">Settings</div>
+      <div class="tab-desc">Branding &amp; SMTP config</div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <h2>Dashboard</h2>
+  <div class="card">
+    <h3>Event Selector</h3>
+    <p>Select an active event to scope your work. The selected event persists across pages. Click <strong>"Change"</strong> to switch events.</p>
+
+    <h3>Stats Cards</h3>
+    <p>Four cards display at-a-glance metrics:</p>
+    <table>
+      <thead><tr><th>Card</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Active Events</strong></td><td>Total number of events in the system</td></tr>
+        <tr><td><strong>Total Leads</strong></td><td>All leads across all organizations</td></tr>
+        <tr><td><strong>Invited</strong></td><td>Leads promoted to invited status</td></tr>
+        <tr><td><strong>Attended</strong></td><td>Invitees who checked in at events</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Events -->
+  <h2>Events</h2>
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-purple">◈</div>
+      <div class="title-wrap">
+        <h4>Create &amp; Manage Events</h4>
+        <div class="trigger">Admin only — Supervisors &amp; Sales Reps have read-only access</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <ol class="steps">
+        <li>Click <strong>"Create Event"</strong> to open the form.</li>
+        <li>Fill in <strong>Name</strong>, <strong>Date</strong>, <strong>Time</strong>, <strong>Location</strong>, and optional <strong>Description</strong>.</li>
+        <li>Click <strong>"Create"</strong>.</li>
+      </ol>
+      <p style="margin-top:12px;">From the events list you can:</p>
+      <ul style="padding-left:20px;color:#475569;font-size:.95rem;">
+        <li><strong>Edit</strong> — Update event details</li>
+        <li><strong>Set Active / Inactive</strong> — Toggle event status</li>
+        <li><strong>Delete</strong> — Permanently remove an event</li>
+      </ul>
+      <div class="callout info" style="margin-top:14px;">
+        <span class="callout-icon">📌</span>
+        <div>Only <strong>active</strong> events appear in the Dashboard event selector and are used for email campaigns.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leads -->
+  <h2>Leads</h2>
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-blue">◉</div>
+      <div class="title-wrap">
+        <h4>Lead Management</h4>
+        <div class="trigger">Admins see all leads across all organizations</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>Leads represent potential event attendees. Admins see leads from <strong>every organization</strong>.</p>
+      <h3>Adding a Lead</h3>
+      <ol class="steps">
+        <li>Click <strong>"Add Lead"</strong>.</li>
+        <li>Fill in: <strong>Full Name</strong>, <strong>Title</strong>, <strong>Company</strong>, <strong>Email</strong>, <strong>Phone</strong>, <strong>Alt Email</strong>.</li>
+        <li>Click <strong>"Create"</strong>.</li>
+      </ol>
+      <h3>Managing Leads</h3>
+      <ul style="padding-left:20px;color:#475569;font-size:.95rem;">
+        <li><strong>Search</strong> — Filter by name, email, company, or phone</li>
+        <li><strong>Edit</strong> — Update lead details</li>
+        <li><strong>Delete</strong> — Remove a lead permanently</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Invited -->
+  <h2>Invited</h2>
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-amber">✉</div>
+      <div class="title-wrap">
+        <h4>Invitation &amp; Email Campaign Management</h4>
+        <div class="trigger">Two tabs: Promote Leads &amp; Invited List</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <h3>Promote Leads Tab</h3>
+      <p>Select leads and click <strong>"Promote to Invited"</strong> to move them into the invited list. Use checkboxes or <strong>"Select All"</strong>.</p>
+
+      <h3>Invited List Tab</h3>
+      <p>Shows all promoted invitees with their current RSVP status and email history.</p>
+
+      <h3>Email History Badges</h3>
+      <p>Each invitee shows colored badges indicating which email types have been sent:</p>
+      <table>
+        <thead><tr><th>Badge</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-indigo">invitation</span></td><td>Initial invitation email sent</td></tr>
+          <tr><td><span class="badge badge-amber">reminder</span></td><td>Follow-up reminder sent</td></tr>
+          <tr><td><span class="badge badge-green">confirmation</span></td><td>Attendance confirmation sent</td></tr>
+          <tr><td><span class="badge badge-indigo">event_update</span></td><td>Event update notification sent</td></tr>
+          <tr><td><span class="badge badge-gray">custom</span></td><td>Custom message sent</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Smart Selection Buttons</h3>
+      <p>Quickly select recipients by criteria:</p>
+      <ul style="padding-left:20px;color:#475569;font-size:.95rem;">
+        <li><strong>Select All</strong> — All invitees</li>
+        <li><strong>Pending RSVP</strong> — Those who haven't responded</li>
+        <li><strong>Accepted</strong> — Confirmed attendees</li>
+        <li><strong>Not Yet Invited</strong> — No invitation email sent yet</li>
+        <li><strong>No Reminder Sent</strong> — Haven't received a reminder</li>
+      </ul>
+
+      <h3>Email Types</h3>
+      <table>
+        <thead><tr><th>Type</th><th>When to Use</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Invitation</strong></td><td>Initial event invitation with RSVP buttons</td></tr>
+          <tr><td><strong>Reminder</strong></td><td>Follow-up for those who haven't responded</td></tr>
+          <tr><td><strong>Confirmation</strong></td><td>Confirm attendance with QR code for check-in</td></tr>
+          <tr><td><strong>Event Update</strong></td><td>Notify of changed event details</td></tr>
+          <tr><td><strong>Custom</strong></td><td>Free-form email with custom subject &amp; body</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn" style="margin-top:14px;">
+        <span class="callout-icon">⚠️</span>
+        <div><strong>Duplicate warning:</strong> The system warns you if selected recipients have already received the chosen email type. Review the send summary before confirming.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Scanner -->
+  <h2>QR Scanner</h2>
+  <div class="card">
+    <p>Use the QR Scanner page to check in attendees at events.</p>
+    <ol class="steps">
+      <li>Click <strong>"Start Scanner"</strong> to activate your device camera.</li>
+      <li>Point the camera at the attendee's QR code (received in their confirmation email).</li>
+      <li>The system automatically reads the code and displays the attendee's <strong>name, title, and organization</strong>.</li>
+      <li>Optionally add <strong>interaction notes</strong> and click <strong>"Save Notes"</strong>.</li>
+    </ol>
+    <p><strong>Manual check-in:</strong> If the camera can't read the QR code, the attendee can provide their <strong>4-character check-in code</strong> (e.g., <code style="background:#f1f5f9;padding:2px 8px;border-radius:5px;font-weight:bold;">K7PN</code> — shown in their confirmation email and RSVP page). Enter it in the text field and click <strong>"Check In"</strong>.</p>
+    <div class="callout info">
+      <span class="callout-icon">📱</span>
+      <div>QR scanning works on all modern browsers (Chrome, Safari, Firefox). Best on mobile devices with rear-facing cameras.</div>
+    </div>
+  </div>
+
+  <!-- Interactions -->
+  <h2>Interactions</h2>
+  <div class="card">
+    <p>The Interactions page is a <strong>customer-centric note-taking hub</strong>. Admins see interactions from all sales reps across all organizations.</p>
+
+    <h3>Customer List (Left Panel)</h3>
+    <ul style="padding-left:20px;color:#475569;font-size:.95rem;margin-bottom:12px;">
+      <li>Browse all customers with their interaction count and RSVP status</li>
+      <li>Customers with existing interactions appear first</li>
+      <li>Search by name, title, company, or email</li>
+      <li>Click a customer to view their interactions</li>
+    </ul>
+
+    <h3>Interaction Detail (Right Panel)</h3>
+    <ul style="padding-left:20px;color:#475569;font-size:.95rem;margin-bottom:12px;">
+      <li><strong>Customer header</strong> — name, title, company, email, phone, and RSVP status</li>
+      <li><strong>Add a Note</strong> — type your notes and click "Save Note". Your name is recorded automatically.</li>
+      <li><strong>Interaction History</strong> — all notes, QR check-ins, RSVP events from <strong>every user</strong>, newest first</li>
+    </ul>
+
+    <div class="callout tip">
+      <span class="callout-icon">👥</span>
+      <div>Multiple team members can log notes on the same customer. Each note shows who wrote it and when, giving the full engagement history.</div>
+    </div>
+  </div>
+
+  <!-- Reports -->
+  <h2>Reports</h2>
+  <div class="card">
+    <h3>Overview Tab</h3>
+    <p>Organization-level statistics and a sortable master table of all leads with their statuses, RSVP responses, and interaction counts.</p>
+
+    <h3>Email Log Tab</h3>
+    <p>Complete log of all outbound emails sent through the platform. Features include:</p>
+    <ul style="padding-left:20px;color:#475569;font-size:.95rem;margin-bottom:12px;">
+      <li><strong>Search</strong> — Filter by recipient, subject, or type</li>
+      <li><strong>Preview</strong> — Click any email to see a PDF-style preview of the full HTML email</li>
+      <li><strong>Print</strong> — Print individual email previews for records</li>
+    </ul>
+
+    <h3>Post-Event Tab</h3>
+    <p>After an event concludes, use the Post-Event tab to review attendees, their interactions, and distribute reports to sales reps.</p>
+    <ul style="padding-left:20px;color:#475569;font-size:.95rem;margin-bottom:12px;">
+      <li><strong>Attendee list</strong> — All checked-in attendees with interaction counts and which reps engaged them</li>
+      <li><strong>Expandable detail</strong> — Click any attendee to see their full interaction history (notes, timestamps, rep names)</li>
+      <li><strong>Rep selection panel</strong> — Choose which sales reps should receive a report. Each rep's report includes only the attendees they interacted with.</li>
+      <li><strong>Email Reports</strong> — Send formatted HTML reports to selected reps with attendee details and all interaction notes</li>
+      <li><strong>Download CSV</strong> — Export the complete event dataset (name, title, company, email, phone, status, interactions, notes summary, reps involved)</li>
+    </ul>
+    <div class="callout tip">
+      <span class="callout-icon">📊</span>
+      <div><strong>Tip:</strong> Use "Select all reps with interactions" to quickly pick everyone who engaged with attendees, then review and deselect as needed.</div>
+    </div>
+  </div>
+
+  <!-- Users (Admin Only) -->
+  <h2>Users (Admin Only)</h2>
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-indigo">◆</div>
+      <div class="title-wrap">
+        <h4>User Account Management</h4>
+        <div class="trigger">Only visible to Admin users</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <h3>Adding a User</h3>
+      <ol class="steps">
+        <li>Click <strong>"Add User"</strong>.</li>
+        <li>Fill in: <strong>Full Name</strong>, <strong>Email/Username</strong>, <strong>Phone</strong>, <strong>Password</strong>, <strong>Organization</strong>.</li>
+        <li>Select a <strong>Role</strong>:</li>
+      </ol>
+      <table>
+        <thead><tr><th>Role</th><th>Access Level</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-indigo">Admin</span></td><td>Full access to all features including Users and Settings</td></tr>
+          <tr><td><span class="badge badge-amber">Supervisor</span></td><td>All features except Users and Settings</td></tr>
+          <tr><td><span class="badge badge-gray">Sales Rep</span></td><td>Dashboard, Leads (own org only), QR Scanner, My Interactions</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Editing a User</h3>
+      <p>Click <strong>"Edit"</strong> to change name, email, phone, organization, or role. Leave the password field blank to keep the existing password.</p>
+
+      <h3>Deleting a User</h3>
+      <p>Click <strong>"Delete"</strong> and confirm. You cannot delete your own account.</p>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <div>When creating a new organization name for a user, the organization is automatically created. Organization names are case-insensitive.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings (Admin Only) -->
+  <h2>Settings (Admin Only)</h2>
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-teal">⚙</div>
+      <div class="title-wrap">
+        <h4>Platform Configuration</h4>
+        <div class="trigger">Only visible to Admin users</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <h3>General Settings</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Company Name</span><span class="field-desc">Displayed in email headers and branding</span></li>
+        <li><span class="field-name">Logo URL</span><span class="field-desc">URL to your company logo (used in emails)</span></li>
+        <li><span class="field-name">App URL</span><span class="field-desc">Your deployed app URL — used for RSVP links in emails</span></li>
+      </ul>
+
+      <h3>Email (SMTP) Settings</h3>
+      <ul class="field-list">
+        <li><span class="field-name">SMTP Host<span class="req">*</span></span><span class="field-desc">e.g., smtp.gmail.com</span></li>
+        <li><span class="field-name">SMTP Port</span><span class="field-desc">587 (TLS) or 465 (SSL) — defaults to 587</span></li>
+        <li><span class="field-name">SMTP User<span class="req">*</span></span><span class="field-desc">Your email address used for sending</span></li>
+        <li><span class="field-name">SMTP Password<span class="req">*</span></span><span class="field-desc">App Password (not your regular password)</span></li>
+        <li><span class="field-name">From Address</span><span class="field-desc">Optional — defaults to SMTP user if blank</span></li>
+      </ul>
+
+      <div class="callout tip" style="margin-top:14px;">
+        <span class="callout-icon">📧</span>
+        <div><strong>Google Workspace / Gmail:</strong> Use <strong>smtp.gmail.com</strong>, port <strong>587</strong>, and generate an <a href="https://myaccount.google.com/apppasswords" style="color:#166534;text-decoration:underline;">App Password</a>. You must have 2-Step Verification enabled on the sending account.</div>
+      </div>
+
+      <p>Click <strong>"Save Settings"</strong> after making changes. A green confirmation message appears on success.</p>
+    </div>
+  </div>
+
+  <!-- Lead Lifecycle -->
+  <h2>Lead Lifecycle</h2>
+  <div class="workflow">
+    <div class="wf-step">Lead Created</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step admin">Promote to Invited</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step">Invitation Sent</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step">RSVP Received</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step admin">Confirmation Sent</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step" style="background:#dcfce7;color:#166534;">Attended (QR Check-in)</div>
+  </div>
+
+  <!-- Role Comparison -->
+  <h2>Role Comparison</h2>
+  <table>
+    <thead>
+      <tr><th>Feature</th><th><span class="badge badge-indigo">Admin</span></th><th><span class="badge badge-amber">Supervisor</span></th><th><span class="badge badge-gray">Sales Rep</span></th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Dashboard</td><td>✅</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Events (create/edit/delete)</td><td>✅</td><td>View only</td><td>—</td></tr>
+      <tr><td>Leads (all orgs)</td><td>✅</td><td>✅</td><td>Own org only</td></tr>
+      <tr><td>Invited &amp; Email Campaigns</td><td>✅</td><td>✅</td><td>—</td></tr>
+      <tr><td>QR Scanner</td><td>✅</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Interactions (all reps)</td><td>✅</td><td>✅</td><td>Own only</td></tr>
+      <tr><td>Reports</td><td>✅</td><td>✅</td><td>—</td></tr>
+      <tr><td>Users Management</td><td>✅</td><td>—</td><td>—</td></tr>
+      <tr><td>Settings</td><td>✅</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Tips -->
+  <h2>Tips &amp; Best Practices</h2>
+  <div class="card">
+    <ul style="padding-left:20px;color:#475569;">
+      <li style="margin-bottom:10px;"><strong>Set up SMTP first.</strong> Email campaigns won't work until SMTP settings are configured in Settings.</li>
+      <li style="margin-bottom:10px;"><strong>Set the App URL.</strong> RSVP links in emails need the correct app URL to function properly.</li>
+      <li style="margin-bottom:10px;"><strong>Use smart selection buttons</strong> when sending emails to avoid duplicate sends.</li>
+      <li style="margin-bottom:10px;"><strong>Send confirmations to accepted RSVPs.</strong> Confirmation emails include the QR code needed for event check-in.</li>
+      <li style="margin-bottom:10px;"><strong>Review the email log</strong> in Reports to verify what was sent and troubleshoot delivery issues.</li>
+      <li style="margin-bottom:10px;"><strong>Create events before leads.</strong> Leads can be associated with events for better tracking.</li>
+      <li><strong>Use Supervisor role</strong> for team leads who need full operational access but shouldn't manage system settings or user accounts.</li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>
+  <p>CorpMarketer v0.2.0 &nbsp;·&nbsp; Powered by VerifyAI &nbsp;·&nbsp; &copy; Polymedia</p>
+</footer>
+
+</body>
+</html>

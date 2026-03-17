@@ -118,48 +118,87 @@ export default function EventsPage() {
         )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Event</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Time</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Location</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                {isAdmin && <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
-              ) : events.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No events yet</td></tr>
-              ) : events.map(ev => (
-                <tr key={ev.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-gray-800">{ev.name}</p>
-                    {ev.description && <p className="text-xs text-gray-400">{ev.description}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{ev.event_date}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{ev.event_time}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{ev.location}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-                      ev.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {ev.status || 'active'}
-                    </span>
-                  </td>
-                  {isAdmin && (
-                    <td className="px-4 py-3 text-right space-x-2">
-                      <button onClick={() => handleEdit(ev)} className="text-xs text-indigo-600 hover:text-indigo-800">Edit</button>
-                      <button onClick={() => handleDelete(ev.id)} className="text-xs text-red-500 hover:text-red-700">Delete</button>
-                    </td>
-                  )}
+          {/* Desktop Table */}
+          <div className="hidden md:block">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Event</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Time</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Location</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                  {isAdmin && <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                ) : events.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No events yet</td></tr>
+                ) : events.map(ev => (
+                  <tr key={ev.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-800">{ev.name}</p>
+                      {ev.description && <p className="text-xs text-gray-400">{ev.description}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{ev.event_date}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{ev.event_time}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{ev.location}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
+                        ev.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {ev.status || 'active'}
+                      </span>
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-right space-x-2">
+                        <button onClick={() => handleEdit(ev)} className="text-xs text-indigo-600 hover:text-indigo-800">Edit</button>
+                        <button onClick={() => handleDelete(ev.id)} className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden">
+            {loading ? (
+              <p className="p-6 text-center text-gray-400">Loading...</p>
+            ) : events.length === 0 ? (
+              <p className="p-6 text-center text-gray-400">No events yet</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {events.map(ev => (
+                  <div key={ev.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-gray-900 truncate flex-1 mr-2">{ev.name}</p>
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ${
+                        ev.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {ev.status || 'active'}
+                      </span>
+                    </div>
+                    {ev.description && <p className="text-xs text-gray-400">{ev.description}</p>}
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      <div><dt className="text-gray-400 inline">Date:</dt> <dd className="text-gray-700 inline">{ev.event_date}</dd></div>
+                      <div><dt className="text-gray-400 inline">Time:</dt> <dd className="text-gray-700 inline">{ev.event_time}</dd></div>
+                      {ev.location && <div className="col-span-2"><dt className="text-gray-400 inline">Location:</dt> <dd className="text-gray-700 inline">{ev.location}</dd></div>}
+                    </dl>
+                    {isAdmin && (
+                      <div className="flex gap-4 pt-1">
+                        <button onClick={() => handleEdit(ev)} className="text-xs text-indigo-600 font-medium">Edit</button>
+                        <button onClick={() => handleDelete(ev.id)} className="text-xs text-red-500 font-medium">Delete</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </AppShell>

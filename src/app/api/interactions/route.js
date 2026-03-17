@@ -18,7 +18,7 @@ export async function GET(request) {
     let interactions = await getInteractions();
 
     // Non-admins only see their own interactions
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'supervisor') {
       interactions = interactions.filter(i => i.sales_rep_id === user.id);
     }
 
@@ -45,11 +45,14 @@ export async function POST(request) {
 
     // If QR scan, find customer by QR data
     let resolvedCustomerId = customer_id;
+    let resolvedCustomer = null;
+    const customers = await getCustomers();
+
     if (qr_data && !customer_id) {
-      const customers = await getCustomers();
       const customer = customers.find(c => c.qr_code_data === qr_data);
       if (!customer) return Response.json({ error: 'Invalid QR code' }, { status: 404 });
       resolvedCustomerId = customer.id;
+      resolvedCustomer = customer;
 
       // Mark as attended
       const idx = customers.findIndex(c => c.id === customer.id);
@@ -58,6 +61,8 @@ export async function POST(request) {
         customers[idx].attended_at = new Date().toISOString();
         await saveCustomers(customers);
       }
+    } else if (resolvedCustomerId) {
+      resolvedCustomer = customers.find(c => c.id === resolvedCustomerId) || null;
     }
 
     if (!resolvedCustomerId) {
@@ -79,7 +84,16 @@ export async function POST(request) {
     interactions.push(interaction);
     await saveInteractions(interactions);
 
-    return Response.json({ interaction });
+    return Response.json({
+      interaction,
+      customer: resolvedCustomer ? {
+        full_name: resolvedCustomer.full_name,
+        title: resolvedCustomer.title || '',
+        company_name: resolvedCustomer.company_name || '',
+        organization_name: resolvedCustomer.organization_name || '',
+        email: resolvedCustomer.email || '',
+      } : null,
+    });
   } catch (err) {
     console.error('Interactions POST error:', err);
     return Response.json({ error: 'Failed to log interaction' }, { status: 500 });

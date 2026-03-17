@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Prevent horizontal overflow on mobile */
+html, body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Safe area insets for notched phones (iPhone X+) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .fixed.bottom-0 {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

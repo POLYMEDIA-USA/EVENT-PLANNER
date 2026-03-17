@@ -70,6 +70,10 @@ function RSVPContent() {
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-2">Show this at the event for check-in</p>
+                <div className="mt-3 p-3 bg-gray-100 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Manual check-in code:</p>
+                  <p className="font-mono text-sm font-bold text-gray-800 break-all select-all">{result.qr_code_data}</p>
+                </div>
               </div>
             )}
           </>

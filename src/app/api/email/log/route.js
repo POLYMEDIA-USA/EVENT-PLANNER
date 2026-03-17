@@ -13,7 +13,7 @@ export async function GET(request) {
   try {
     const user = await authenticate(request);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
+    if (user.role !== 'admin' && user.role !== 'supervisor') return Response.json({ error: 'Admin/Supervisor only' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customer_id');

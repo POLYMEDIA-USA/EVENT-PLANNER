@@ -21,7 +21,7 @@ export async function GET(request) {
     let customers = await getCustomers();
 
     // Org-level data silo: sales reps only see their org's customers
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'supervisor') {
       customers = customers.filter(c => c.organization_id === user.organization_id);
     }
 

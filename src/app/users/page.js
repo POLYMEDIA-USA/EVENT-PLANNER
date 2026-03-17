@@ -133,6 +133,7 @@ export default function UsersPage() {
                 <select value={form.role} onChange={set('role')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
                   <option value="sales_rep">Sales Rep</option>
+                  <option value="supervisor">Supervisor</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
@@ -159,7 +160,8 @@ export default function UsersPage() {
             />
             <span className="text-sm text-gray-400 ml-4">{filtered.length} user{filtered.length !== 1 ? 's' : ''}</span>
           </div>
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -185,9 +187,9 @@ export default function UsersPage() {
                     <td className="px-4 py-3 text-sm text-gray-600">{u.organization_name}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-                        u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                        u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : u.role === 'supervisor' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {u.role === 'admin' ? 'Admin' : 'Sales Rep'}
+                        {u.role === 'admin' ? 'Admin' : u.role === 'supervisor' ? 'Supervisor' : 'Sales Rep'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">{new Date(u.created_at).toLocaleDateString()}</td>
@@ -201,6 +203,42 @@ export default function UsersPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden">
+            {loading ? (
+              <p className="p-6 text-center text-gray-400">Loading...</p>
+            ) : filtered.length === 0 ? (
+              <p className="p-6 text-center text-gray-400">No users found</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {filtered.map(u => (
+                  <div key={u.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{u.full_name}</p>
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ml-2 ${
+                        u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : u.role === 'supervisor' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {u.role === 'admin' ? 'Admin' : u.role === 'supervisor' ? 'Supervisor' : 'Sales Rep'}
+                      </span>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      <div className="col-span-2"><dt className="text-gray-400 inline">Email:</dt> <dd className="text-gray-700 inline truncate">{u.email}</dd></div>
+                      {u.phone && <div><dt className="text-gray-400 inline">Phone:</dt> <dd className="text-gray-700 inline">{u.phone}</dd></div>}
+                      <div><dt className="text-gray-400 inline">Org:</dt> <dd className="text-gray-700 inline truncate">{u.organization_name}</dd></div>
+                      <div className="col-span-2"><dt className="text-gray-400 inline">Created:</dt> <dd className="text-gray-700 inline">{new Date(u.created_at).toLocaleDateString()}</dd></div>
+                    </dl>
+                    <div className="flex gap-4 pt-1">
+                      <button onClick={() => handleEdit(u)} className="text-xs text-indigo-600 font-medium">Edit</button>
+                      {u.id !== user?.id && (
+                        <button onClick={() => handleDelete(u)} className="text-xs text-red-500 font-medium">Delete</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

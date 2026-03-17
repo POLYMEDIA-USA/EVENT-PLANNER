@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
+import jsQR from 'jsqr';
 
 export default function ScannerPage() {
   const { user } = useAuth();
@@ -28,7 +29,6 @@ export default function ScannerPage() {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
         setScanning(true);
-        // Start scanning loop using BarcodeDetector API
         startScanLoop();
       }
     } catch (err) {
@@ -39,29 +39,28 @@ export default function ScannerPage() {
   const startScanLoop = () => {
     if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
 
-    scanIntervalRef.current = setInterval(async () => {
+    scanIntervalRef.current = setInterval(() => {
       if (!videoRef.current || !canvasRef.current) return;
 
       const video = videoRef.current;
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
 
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      try {
-        if ('BarcodeDetector' in window) {
-          const detector = new BarcodeDetector({ formats: ['qr_code'] });
-          const barcodes = await detector.detect(canvas);
-          if (barcodes.length > 0) {
-            handleQRResult(barcodes[0].rawValue);
-          }
-        }
-      } catch (e) {
-        // BarcodeDetector not supported, rely on manual entry
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert',
+      });
+
+      if (code && code.data) {
+        handleQRResult(code.data);
       }
-    }, 500);
+    }, 300);
   };
 
   const stopCamera = () => {
@@ -81,7 +80,6 @@ export default function ScannerPage() {
   const handleQRResult = async (data) => {
     stopCamera();
 
-    // Check in via API
     const res = await fetch('/api/interactions', {
       method: 'POST', headers,
       body: JSON.stringify({
@@ -94,7 +92,7 @@ export default function ScannerPage() {
 
     if (res.ok) {
       const iData = await res.json();
-      setResult({ success: true, interaction: iData.interaction, qr_data: data });
+      setResult({ success: true, interaction: iData.interaction, customer: iData.customer, qr_data: data });
     } else {
       const err = await res.json();
       setResult({ success: false, error: err.error });
@@ -150,25 +148,35 @@ export default function ScannerPage() {
                   </div>
                 )}
                 {scanning && (
-                  <div className="absolute top-4 right-4">
-                    <button onClick={stopCamera} className="px-3 py-1 bg-red-600 text-white text-sm rounded">
-                      Stop
-                    </button>
-                  </div>
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-48 h-48 border-2 border-white/50 rounded-lg"></div>
+                    </div>
+                    <div className="absolute top-4 right-4">
+                      <button onClick={stopCamera} className="px-3 py-1 bg-red-600 text-white text-sm rounded">
+                        Stop
+                      </button>
+                    </div>
+                    <div className="absolute bottom-4 left-0 right-0 text-center">
+                      <p className="text-white text-xs bg-black/50 inline-block px-3 py-1 rounded">Point camera at QR code</p>
+                    </div>
+                  </>
                 )}
               </div>
 
               {error && <p className="text-sm text-amber-600 mb-4">{error}</p>}
 
               <div className="border-t border-gray-200 pt-4">
-                <p className="text-sm text-gray-500 mb-2">Or enter QR code data manually:</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">Manual Check-In Code</p>
+                <p className="text-xs text-gray-400 mb-2">Enter the check-in code shown on the attendee&apos;s confirmation email or RSVP page.</p>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
-                    placeholder="CORPMARKETER:customer-id:token"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    onKeyDown={(e) => e.key === 'Enter' && handleManualEntry()}
+                    placeholder="e.g. CORPMARKETER:abc123:xyz789"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
                   />
                   <button onClick={handleManualEntry}
                     className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
@@ -189,7 +197,15 @@ export default function ScannerPage() {
                     <span className="text-green-600 text-2xl font-bold">&#10003;</span>
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">Checked In!</h2>
-                  <p className="text-gray-500 mt-1">Guest has been marked as attended</p>
+                  {result.customer && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg text-left">
+                      <p className="text-lg font-semibold text-gray-900">{result.customer.full_name}</p>
+                      {result.customer.title && <p className="text-sm text-indigo-600">{result.customer.title}</p>}
+                      {result.customer.company_name && <p className="text-sm text-gray-600">{result.customer.company_name}</p>}
+                      {result.customer.organization_name && <p className="text-xs text-gray-400 mt-1">Org: {result.customer.organization_name}</p>}
+                    </div>
+                  )}
+                  {!result.customer && <p className="text-gray-500 mt-1">Guest has been marked as attended</p>}
                 </div>
 
                 <div className="mb-4">

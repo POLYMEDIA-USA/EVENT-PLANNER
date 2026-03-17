@@ -71,6 +71,10 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
             <p style="font-weight:bold;">Your Check-In QR Code:</p>
             <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(customer.qr_code_data)}" alt="QR Code" style="margin:8px auto;" />
             <p style="color:#6B7280;font-size:12px;">Show this at the event for check-in</p>
+            <div style="margin-top:12px;padding:10px 16px;background:#F3F4F6;border-radius:6px;display:inline-block;">
+              <p style="color:#6B7280;font-size:11px;margin:0 0 4px;">Manual check-in code:</p>
+              <p style="font-family:monospace;font-size:13px;font-weight:bold;color:#1F2937;margin:0;word-break:break-all;">${customer.qr_code_data}</p>
+            </div>
           </div>`
         : '';
       subject = `Confirmed: ${event.name} - See You There!`;
@@ -125,7 +129,7 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    if (!user || user.role !== 'admin') {
+    if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
       return Response.json({ error: 'Admin only' }, { status: 403 });
     }
 
