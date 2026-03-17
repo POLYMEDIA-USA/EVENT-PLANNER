@@ -154,7 +154,7 @@ export default function InvitedPage() {
     setSending(false);
   };
 
-  if (user?.role !== 'admin') {
+  if (user?.role !== 'admin' && user?.role !== 'supervisor') {
     return <AppShell><div className="p-8 text-center text-gray-400">Admin access required</div></AppShell>;
   }
 
@@ -204,35 +204,66 @@ export default function InvitedPage() {
                 Promote to Invited
               </button>
             </div>
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left">
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left">
+                      <input type="checkbox" checked={selected.size === leads.length && leads.length > 0}
+                        onChange={selectAll} className="rounded border-gray-300" />
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Organization</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Added By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.length === 0 ? (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No leads to promote</td></tr>
+                  ) : leads.map(l => (
+                    <tr key={l.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggleSelect(l.id)}>
+                      <td className="px-4 py-3">
+                        <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} className="rounded border-gray-300" />
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{l.full_name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{l.company_name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{l.email}</td>
+                      <td className="px-4 py-3 text-xs text-gray-400">{l.organization_name}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden">
+              {leads.length === 0 ? (
+                <p className="p-6 text-center text-gray-400">No leads to promote</p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  <div className="px-4 py-2 bg-gray-50 flex items-center gap-2">
                     <input type="checkbox" checked={selected.size === leads.length && leads.length > 0}
                       onChange={selectAll} className="rounded border-gray-300" />
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Organization</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Added By</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No leads to promote</td></tr>
-                ) : leads.map(l => (
-                  <tr key={l.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggleSelect(l.id)}>
-                    <td className="px-4 py-3">
-                      <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} className="rounded border-gray-300" />
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{l.full_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{l.company_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{l.email}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{l.organization_name}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    <span className="text-xs text-gray-500">Select all</span>
+                  </div>
+                  {leads.map(l => (
+                    <div key={l.id} className={`p-4 flex items-start gap-3 cursor-pointer ${selected.has(l.id) ? 'bg-indigo-50' : ''}`}
+                      onClick={() => toggleSelect(l.id)}>
+                      <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)}
+                        className="rounded border-gray-300 mt-0.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{l.full_name}</p>
+                        {l.company_name && <p className="text-xs text-gray-500 truncate">{l.company_name}</p>}
+                        <p className="text-xs text-gray-400 truncate mt-0.5">{l.email}</p>
+                        {l.organization_name && <p className="text-[10px] text-gray-300 mt-0.5">Added by: {l.organization_name}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -241,10 +272,10 @@ export default function InvitedPage() {
           <>
             {/* Email Action Bar */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <p className="text-sm font-medium text-gray-700">{selected.size} selected</p>
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
                     <button onClick={selectAll}
                       className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">
                       {selected.size === invited.length ? 'Deselect All' : 'Select All'}
@@ -268,7 +299,7 @@ export default function InvitedPage() {
                   </div>
                 </div>
                 <button onClick={() => setShowEmailPanel(!showEmailPanel)} disabled={selected.size === 0}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 shrink-0">
                   {showEmailPanel ? 'Hide Email Panel' : 'Send Email'}
                 </button>
               </div>
@@ -338,7 +369,8 @@ export default function InvitedPage() {
 
             {/* Invited Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
@@ -400,6 +432,55 @@ export default function InvitedPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden">
+                {loading ? (
+                  <p className="p-6 text-center text-gray-400">Loading...</p>
+                ) : invited.length === 0 ? (
+                  <p className="p-6 text-center text-gray-400">No invited customers yet. Promote leads first.</p>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    <div className="px-4 py-2 bg-gray-50 flex items-center gap-2">
+                      <input type="checkbox" checked={selected.size === invited.length && invited.length > 0}
+                        onChange={selectAll} className="rounded border-gray-300" />
+                      <span className="text-xs text-gray-500">Select all</span>
+                    </div>
+                    {invited.map(c => {
+                      const typesSent = getEmailTypesSent(c.id);
+                      const history = getEmailHistory(c.id);
+                      return (
+                        <div key={c.id} className={`p-4 flex items-start gap-3 cursor-pointer ${selected.has(c.id) ? 'bg-indigo-50' : ''}`}
+                          onClick={() => toggleSelect(c.id)}>
+                          <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
+                            className="rounded border-gray-300 mt-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{c.full_name}</p>
+                              <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ml-2 ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}>
+                                {c.status}
+                              </span>
+                            </div>
+                            {c.company_name && <p className="text-xs text-gray-500 truncate">{c.company_name}</p>}
+                            <p className="text-xs text-gray-400 truncate">{c.email}</p>
+                            {c.organization_name && <p className="text-[10px] text-gray-300">Org: {c.organization_name}</p>}
+                            {Object.keys(typesSent).length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                {Object.entries(typesSent).map(([type, date]) => (
+                                  <span key={type} className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}>
+                                    {type.replace('_', ' ')}
+                                  </span>
+                                ))}
+                                <span className="text-[10px] text-gray-400">({history.length})</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </>

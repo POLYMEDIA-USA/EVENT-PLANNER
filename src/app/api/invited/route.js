@@ -15,7 +15,7 @@ export async function GET(request) {
   try {
     const user = await authenticate(request);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
+    if (user.role !== 'admin' && user.role !== 'supervisor') return Response.json({ error: 'Admin/Supervisor only' }, { status: 403 });
 
     const customers = await getCustomers();
     const invited = customers.filter(c => ['invited', 'accepted', 'declined', 'attended'].includes(c.status));
@@ -31,7 +31,7 @@ export async function POST(request) {
   try {
     const user = await authenticate(request);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
+    if (user.role !== 'admin' && user.role !== 'supervisor') return Response.json({ error: 'Admin/Supervisor only' }, { status: 403 });
 
     const { customer_ids } = await request.json();
     if (!customer_ids || !customer_ids.length) {

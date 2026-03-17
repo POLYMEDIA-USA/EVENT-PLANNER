@@ -6,7 +6,7 @@ import AppShell from '@/components/AppShell';
 
 export default function ReportsPage() {
   const { user } = useAuth();
-  const [tab, setTab] = useState('overview'); // 'overview', 'emails'
+  const [tab, setTab] = useState('overview'); // 'overview', 'emails', 'post-event'
   const [customers, setCustomers] = useState([]);
   const [interactions, setInteractions] = useState([]);
   const [emails, setEmails] = useState([]);
@@ -18,6 +18,13 @@ export default function ReportsPage() {
   const [sortDir, setSortDir] = useState('desc');
   const [loading, setLoading] = useState(true);
   const previewRef = useRef(null);
+
+  // Post-event state
+  const [postEventData, setPostEventData] = useState(null);
+  const [postEventLoading, setPostEventLoading] = useState(false);
+  const [selectedAttendee, setSelectedAttendee] = useState(null);
+  const [selectedReps, setSelectedReps] = useState(new Set());
+  const [postEventSending, setPostEventSending] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -36,6 +43,51 @@ export default function ReportsPage() {
       if (emailRes.ok) setEmails((await emailRes.json()).emails || []);
     } catch (err) { console.error(err); }
     setLoading(false);
+  };
+
+  const fetchPostEvent = async () => {
+    setPostEventLoading(true);
+    try {
+      const res = await fetch('/api/reports/post-event', { headers });
+      if (res.ok) setPostEventData(await res.json());
+    } catch (err) { console.error(err); }
+    setPostEventLoading(false);
+  };
+
+  const downloadCSV = async () => {
+    const res = await fetch('/api/reports/post-event', {
+      method: 'POST', headers,
+      body: JSON.stringify({ action: 'csv' }),
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `post-event-report.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const sendReports = async () => {
+    if (selectedReps.size === 0) { alert('Select at least one rep'); return; }
+    setPostEventSending(true);
+    try {
+      const res = await fetch('/api/reports/post-event', {
+        method: 'POST', headers,
+        body: JSON.stringify({ action: 'email', rep_ids: [...selectedReps] }),
+      });
+      const data = await res.json();
+      alert(data.message || data.error);
+    } catch (err) { alert('Failed: ' + err.message); }
+    setPostEventSending(false);
+  };
+
+  const toggleRep = (id) => {
+    const next = new Set(selectedReps);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setSelectedReps(next);
   };
 
   const viewEmail = async (emailId) => {
@@ -109,7 +161,7 @@ export default function ReportsPage() {
     attended: 'bg-purple-100 text-purple-700',
   };
 
-  if (user?.role !== 'admin') {
+  if (user?.role !== 'admin' && user?.role !== 'supervisor') {
     return <AppShell><div className="p-8 text-center text-gray-400">Admin access required</div></AppShell>;
   }
 
@@ -118,14 +170,18 @@ export default function ReportsPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => { setTab('overview'); setSelectedEmail(null); }}
-              className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'overview' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+              className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'overview' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
               Overview
             </button>
             <button onClick={() => { setTab('emails'); setSelectedEmail(null); }}
-              className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'emails' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              Email Log ({emails.length})
+              className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'emails' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+              Emails ({emails.length})
+            </button>
+            <button onClick={() => { setTab('post-event'); if (!postEventData) fetchPostEvent(); }}
+              className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'post-event' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+              Post-Event
             </button>
           </div>
         </div>
@@ -148,7 +204,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Filter */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-4">
               {['all', 'possible', 'invited', 'accepted', 'declined', 'attended'].map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`px-3 py-1.5 text-xs rounded-lg font-medium ${filter === f ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
@@ -159,7 +215,8 @@ export default function ReportsPage() {
 
             {/* Master Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
@@ -211,6 +268,55 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden">
+                {/* Sort controls for mobile */}
+                <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-2 text-xs overflow-x-auto">
+                  <span className="text-gray-400 shrink-0">Sort:</span>
+                  {[
+                    { key: 'full_name', label: 'Name' }, { key: 'status', label: 'Status' }, { key: 'created_at', label: 'Date' },
+                  ].map(col => (
+                    <button key={col.key} onClick={() => toggleSort(col.key)}
+                      className={`px-2 py-1 rounded shrink-0 ${sortBy === col.key ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-gray-500'}`}>
+                      {col.label} {sortBy === col.key ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                    </button>
+                  ))}
+                </div>
+                {loading ? (
+                  <p className="p-6 text-center text-gray-400">Loading...</p>
+                ) : sorted.length === 0 ? (
+                  <p className="p-6 text-center text-gray-400">No data</p>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {sorted.map(c => {
+                      const emailCount = emails.filter(e => e.customer_id === c.id).length;
+                      return (
+                        <div key={c.id} className="p-4 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{c.full_name}</p>
+                            <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ml-2 ${statusColors[c.status] || 'bg-gray-100'}`}>
+                              {c.status}
+                            </span>
+                          </div>
+                          {c.company_name && <p className="text-xs text-gray-500 truncate">{c.company_name}</p>}
+                          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                            <div className="col-span-2"><dt className="text-gray-400 inline">Email:</dt> <dd className="text-gray-700 inline truncate">{c.email}</dd></div>
+                            {c.organization_name && <div><dt className="text-gray-400 inline">Sales Org:</dt> <dd className="text-gray-700 inline">{c.organization_name}</dd></div>}
+                            <div><dt className="text-gray-400 inline">Added:</dt> <dd className="text-gray-700 inline">{new Date(c.created_at).toLocaleDateString()}</dd></div>
+                          </dl>
+                          {emailCount > 0 && (
+                            <button onClick={() => { setTab('emails'); setEmailFilter(c.email); }}
+                              className="text-xs text-indigo-600 font-medium pt-0.5">
+                              {emailCount} email{emailCount !== 1 ? 's' : ''} →
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
@@ -227,7 +333,8 @@ export default function ReportsPage() {
                 <button onClick={() => setEmailFilter('')} className="ml-2 text-xs text-gray-400 hover:text-gray-600">Clear</button>
               )}
             </div>
-            <div className="overflow-x-auto">
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -269,6 +376,40 @@ export default function ReportsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden">
+              {filteredEmails.length === 0 ? (
+                <p className="p-6 text-center text-gray-400">No emails logged yet</p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {filteredEmails.map(e => (
+                    <div key={e.id} className="p-4 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ${
+                            e.direction === 'outbound' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                          }`}>
+                            {e.direction === 'outbound' ? 'Sent' : 'Recv'}
+                          </span>
+                          <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600 shrink-0">{e.type}</span>
+                        </div>
+                        <button onClick={() => viewEmail(e.id)}
+                          className="text-xs text-indigo-600 font-medium shrink-0 ml-2">
+                          View
+                        </button>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 truncate">{e.customer_name}</p>
+                      <p className="text-xs text-gray-600 truncate">{e.subject}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-400">
+                        <span className="truncate">{e.direction === 'outbound' ? e.to : e.from}</span>
+                        <span className="shrink-0 ml-2">{new Date(e.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -312,6 +453,162 @@ export default function ReportsPage() {
               </div>
             </div>
           </div>
+        )}
+        {tab === 'post-event' && (
+          <>
+            {postEventLoading ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                <p className="text-gray-400 mt-3 text-sm">Loading post-event data...</p>
+              </div>
+            ) : !postEventData ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <p className="text-gray-400">Failed to load data. <button onClick={fetchPostEvent} className="text-indigo-600 underline">Retry</button></p>
+              </div>
+            ) : (
+              <>
+                {/* Event Summary Header */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">{postEventData.event?.name || 'Event'}</h2>
+                      <p className="text-sm text-gray-500">
+                        {postEventData.event?.event_date || 'N/A'} · {postEventData.attendees.length} attendees · {postEventData.total_interactions} total interactions
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={downloadCSV}
+                        className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">
+                        Download CSV
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Attendee List */}
+                  <div className="lg:col-span-2">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-700">Attendees & Interactions</h3>
+                      </div>
+                      {postEventData.attendees.length === 0 ? (
+                        <p className="p-6 text-center text-gray-400 text-sm">No attendees recorded yet</p>
+                      ) : (
+                        <div className="divide-y divide-gray-100">
+                          {postEventData.attendees.map(a => (
+                            <div key={a.id}
+                              onClick={() => setSelectedAttendee(selectedAttendee?.id === a.id ? null : a)}
+                              className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${selectedAttendee?.id === a.id ? 'bg-indigo-50' : ''}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-gray-900">{a.full_name}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {a.title && <span className="text-xs text-indigo-600">{a.title}</span>}
+                                    {a.title && a.company_name && <span className="text-xs text-gray-300">·</span>}
+                                    {a.company_name && <span className="text-xs text-gray-500">{a.company_name}</span>}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                  <span className="text-xs text-gray-400">{a.interaction_count} note{a.interaction_count !== 1 ? 's' : ''}</span>
+                                  <span className="text-xs text-gray-300">{selectedAttendee?.id === a.id ? '▲' : '▼'}</span>
+                                </div>
+                              </div>
+
+                              {/* Reps who interacted */}
+                              {a.reps.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                  {a.reps.map(r => (
+                                    <span key={r.id} className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700 font-medium">
+                                      {r.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Expanded: show all interactions */}
+                              {selectedAttendee?.id === a.id && (
+                                <div className="mt-3 space-y-2 border-t border-gray-100 pt-3" onClick={(e) => e.stopPropagation()}>
+                                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
+                                    {a.email && <div className="col-span-2"><dt className="text-gray-400 inline">Email:</dt> <dd className="text-gray-700 inline">{a.email}</dd></div>}
+                                    {a.phone && <div><dt className="text-gray-400 inline">Phone:</dt> <dd className="text-gray-700 inline">{a.phone}</dd></div>}
+                                    <div><dt className="text-gray-400 inline">Emails sent:</dt> <dd className="text-gray-700 inline">{a.email_count}</dd></div>
+                                  </dl>
+                                  {a.interactions.length === 0 ? (
+                                    <p className="text-xs text-gray-300">No interaction notes</p>
+                                  ) : a.interactions.map(i => (
+                                    <div key={i.id} className="p-2.5 bg-gray-50 rounded-lg">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-xs font-medium text-gray-600">{i.sales_rep_name || 'System'}</span>
+                                        <span className="text-[10px] text-gray-400">{new Date(i.created_at).toLocaleString()}</span>
+                                      </div>
+                                      {i.notes && <p className="text-xs text-gray-700 whitespace-pre-wrap">{i.notes}</p>}
+                                      {!i.notes && <p className="text-xs text-gray-400 italic">{i.interaction_type?.replace('_', ' ')}</p>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Rep Selection Panel */}
+                  <div className="lg:col-span-1">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-4">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-700">Send Reports to Reps</h3>
+                        <p className="text-xs text-gray-400 mt-0.5">Each rep receives a report of attendees they interacted with</p>
+                      </div>
+                      <div className="divide-y divide-gray-100">
+                        {postEventData.reps.length === 0 ? (
+                          <p className="p-4 text-xs text-gray-400 text-center">No reps found</p>
+                        ) : postEventData.reps.map(r => {
+                          // Count how many attendees this rep interacted with
+                          const repAttendeeCount = postEventData.attendees.filter(a =>
+                            a.reps.some(ar => ar.id === r.id)
+                          ).length;
+                          return (
+                            <label key={r.id} className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 ${selectedReps.has(r.id) ? 'bg-indigo-50' : ''}`}>
+                              <input type="checkbox" checked={selectedReps.has(r.id)} onChange={() => toggleRep(r.id)}
+                                className="rounded border-gray-300 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-gray-900 truncate">{r.full_name}</p>
+                                <p className="text-xs text-gray-400 truncate">{r.email}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className={`text-xs font-medium ${repAttendeeCount > 0 ? 'text-indigo-600' : 'text-gray-300'}`}>
+                                  {repAttendeeCount}
+                                </span>
+                                <p className="text-[10px] text-gray-400">attendees</p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="p-4 border-t border-gray-200 space-y-2">
+                        <button onClick={sendReports} disabled={selectedReps.size === 0 || postEventSending}
+                          className="w-full py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                          {postEventSending ? 'Sending...' : `Email Reports to ${selectedReps.size} Rep${selectedReps.size !== 1 ? 's' : ''}`}
+                        </button>
+                        <button onClick={() => {
+                          const allRepIds = postEventData.reps.filter(r =>
+                            postEventData.attendees.some(a => a.reps.some(ar => ar.id === r.id))
+                          ).map(r => r.id);
+                          setSelectedReps(new Set(allRepIds));
+                        }}
+                          className="w-full py-2 text-xs text-gray-500 hover:text-gray-700">
+                          Select all reps with interactions
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </>
         )}
       </div>
     </AppShell>

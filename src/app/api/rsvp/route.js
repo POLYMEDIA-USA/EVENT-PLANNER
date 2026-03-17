@@ -25,8 +25,13 @@ export async function GET(request) {
     if (action === 'accept') {
       customers[idx].status = 'accepted';
       customers[idx].rsvp_responded_at = new Date().toISOString();
-      // Generate QR code data (the token itself serves as QR data)
-      customers[idx].qr_code_data = `CORPMARKETER:${customer.id}:${token}`;
+      // Generate short 4-char alphanumeric check-in code (uppercase)
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 to avoid confusion
+      let code;
+      do {
+        code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      } while (customers.some(c => c.qr_code_data === code));
+      customers[idx].qr_code_data = code;
     } else if (action === 'decline') {
       customers[idx].status = 'declined';
       customers[idx].rsvp_responded_at = new Date().toISOString();

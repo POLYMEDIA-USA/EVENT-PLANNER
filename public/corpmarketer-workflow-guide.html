@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CorpMarketer — Workflow Guide</title>
+  <style>
+    @page {
+      size: letter;
+      margin: 0;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .page { page-break-after: always; break-after: page; }
+      .page:last-child { page-break-after: avoid; }
+      .no-print { display: none !important; }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.55;
+      color: #1a1a2e;
+      background: #e5e7eb;
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 20px auto;
+      background: #fff;
+      box-shadow: 0 2px 20px rgba(0,0,0,.12);
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── Print button ── */
+    .print-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: #312e81;
+      color: #fff;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 999;
+      font-size: 14px;
+    }
+    .print-bar button {
+      background: #fff;
+      color: #312e81;
+      border: none;
+      padding: 8px 24px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .print-bar button:hover { background: #e0e7ff; }
+
+    /* ── Cover page ── */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 297mm;
+      background: linear-gradient(160deg, #312e81 0%, #4f46e5 40%, #06b6d4 100%);
+      color: #fff;
+      text-align: center;
+      padding: 60px 50px;
+    }
+    .cover img { height: 80px; margin-bottom: 40px; filter: brightness(0) invert(1); }
+    .cover h1 { font-size: 38pt; font-weight: 800; margin-bottom: 8px; letter-spacing: -1px; }
+    .cover .subtitle { font-size: 16pt; opacity: .85; margin-bottom: 50px; font-weight: 300; }
+    .cover .divider { width: 80px; height: 3px; background: rgba(255,255,255,.4); border-radius: 2px; margin: 0 auto 50px; }
+    .cover .meta { font-size: 10pt; opacity: .6; }
+    .cover .badge-row { display: flex; gap: 16px; margin-bottom: 50px; }
+    .cover .badge-item {
+      background: rgba(255,255,255,.12);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 20px 28px;
+      min-width: 160px;
+    }
+    .cover .badge-item .badge-label { font-size: 9pt; opacity: .7; text-transform: uppercase; letter-spacing: 1px; }
+    .cover .badge-item .badge-value { font-size: 16pt; font-weight: 700; margin-top: 4px; }
+
+    /* ── Content pages ── */
+    .content {
+      padding: 40px 50px 60px;
+      min-height: 297mm;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #e2e8f0;
+      margin-bottom: 30px;
+    }
+    .page-header img { height: 28px; opacity: .5; }
+    .page-header .section-tag {
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+
+    h2 {
+      font-size: 22pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+    h2 .role-tag {
+      display: inline-block;
+      font-size: 9pt;
+      padding: 3px 12px;
+      border-radius: 20px;
+      font-weight: 700;
+      vertical-align: middle;
+      margin-left: 10px;
+      position: relative;
+      top: -2px;
+    }
+    .tag-rep { background: #dbeafe; color: #1e40af; }
+    .tag-sup { background: #fef3c7; color: #92400e; }
+
+    h3 {
+      font-size: 12pt;
+      font-weight: 700;
+      color: #4f46e5;
+      margin: 24px 0 10px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-size: 9pt;
+    }
+    .sub-intro { font-size: 10.5pt; color: #64748b; margin-bottom: 24px; }
+
+    /* ── Workflow steps ── */
+    .wf-timeline {
+      position: relative;
+      padding-left: 36px;
+      margin: 20px 0;
+    }
+    .wf-timeline::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 4px;
+      bottom: 4px;
+      width: 2px;
+      background: #e2e8f0;
+    }
+    .wf-step {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .wf-step:last-child { margin-bottom: 0; }
+    .wf-step .num {
+      position: absolute;
+      left: -36px;
+      top: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #4f46e5;
+      color: #fff;
+      font-size: 10pt;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+    .wf-step .num.green { background: #059669; }
+    .wf-step .num.amber { background: #d97706; }
+    .wf-step .num.blue { background: #2563eb; }
+    .wf-step .step-title { font-weight: 700; font-size: 11pt; color: #0f172a; margin-bottom: 3px; }
+    .wf-step .step-desc { font-size: 10pt; color: #475569; }
+
+    /* ── Screen mockups ── */
+    .mockup {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 16px 0;
+      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+    }
+    .mockup-bar {
+      background: #0f172a;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mockup-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-r { background: #ef4444; }
+    .dot-y { background: #eab308; }
+    .dot-g { background: #22c55e; }
+    .mockup-title { color: #94a3b8; font-size: 8pt; margin-left: 8px; }
+    .mockup-body { padding: 14px 16px; }
+
+    /* ── Mock UI elements ── */
+    .mock-sidebar {
+      display: flex;
+      gap: 0;
+    }
+    .mock-nav {
+      width: 140px;
+      background: #fff;
+      border-right: 1px solid #e2e8f0;
+      padding: 10px 0;
+      flex-shrink: 0;
+    }
+    .mock-nav-item {
+      padding: 5px 12px;
+      font-size: 7.5pt;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mock-nav-item.active {
+      background: #eef2ff;
+      color: #4338ca;
+      font-weight: 700;
+      border-right: 2px solid #4338ca;
+    }
+    .mock-main { flex: 1; padding: 10px 14px; }
+    .mock-heading { font-size: 10pt; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+    .mock-btn {
+      display: inline-block;
+      background: #4f46e5;
+      color: #fff;
+      font-size: 7pt;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .mock-btn.green { background: #059669; }
+    .mock-btn.red { background: #dc2626; }
+    .mock-btn.gray { background: #e2e8f0; color: #475569; }
+    .mock-input {
+      display: block;
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 7.5pt;
+      color: #6b7280;
+      margin-bottom: 6px;
+      background: #fff;
+    }
+    .mock-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7pt;
+      margin-top: 8px;
+    }
+    .mock-table th {
+      background: #f1f5f9;
+      padding: 4px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      font-size: 6pt;
+      letter-spacing: .5px;
+    }
+    .mock-table td {
+      padding: 4px 8px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+    }
+    .mock-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 6pt;
+      font-weight: 600;
+    }
+    .mb-green { background: #dcfce7; color: #166534; }
+    .mb-blue { background: #dbeafe; color: #1e40af; }
+    .mb-amber { background: #fef3c7; color: #92400e; }
+    .mb-purple { background: #ede9fe; color: #6d28d9; }
+    .mb-gray { background: #f1f5f9; color: #475569; }
+    .mb-indigo { background: #e0e7ff; color: #3730a3; }
+
+    .mock-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+    }
+    .mock-card-title { font-size: 8pt; font-weight: 700; color: #0f172a; }
+    .mock-card-sub { font-size: 6.5pt; color: #94a3b8; }
+
+    .mock-phone {
+      width: 180px;
+      margin: 0 auto;
+      background: #0f172a;
+      border-radius: 20px;
+      padding: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.2);
+    }
+    .mock-phone-screen {
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      min-height: 280px;
+    }
+    .mock-phone-status {
+      background: #f8fafc;
+      padding: 4px 10px;
+      font-size: 6pt;
+      color: #94a3b8;
+      text-align: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .mock-phone-body { padding: 10px 12px; }
+    .mock-phone-bottom {
+      display: flex;
+      border-top: 1px solid #e2e8f0;
+      background: #fff;
+    }
+    .mock-phone-tab {
+      flex: 1;
+      text-align: center;
+      padding: 6px 2px;
+      font-size: 5.5pt;
+      color: #94a3b8;
+    }
+    .mock-phone-tab.active { color: #4f46e5; font-weight: 700; }
+    .mock-phone-tab .tab-icon { font-size: 10pt; display: block; margin-bottom: 1px; }
+
+    /* ── Callouts ── */
+    .callout {
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 14px 0;
+      font-size: 9.5pt;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .callout-icon { font-size: 12pt; flex-shrink: 0; }
+    .callout.tip { background: #f0fdf4; border-left: 3px solid #22c55e; color: #166534; }
+    .callout.info { background: #eff6ff; border-left: 3px solid #3b82f6; color: #1e40af; }
+    .callout.warn { background: #fffbeb; border-left: 3px solid #f59e0b; color: #92400e; }
+
+    /* ── Flow diagram ── */
+    .flow-diagram {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 16px 0;
+    }
+    .flow-box {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 8pt;
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .flow-box.rep { background: #dbeafe; color: #1e40af; }
+    .flow-box.sup { background: #fef3c7; color: #92400e; }
+    .flow-box.sys { background: #f1f5f9; color: #475569; }
+    .flow-box.done { background: #dcfce7; color: #166534; }
+    .flow-arrow { color: #94a3b8; font-size: 12pt; }
+
+    /* ── Two column ── */
+    .two-col { display: flex; gap: 20px; }
+    .two-col > * { flex: 1; }
+
+    /* ── Footer ── */
+    .page-footer {
+      position: absolute;
+      bottom: 20px;
+      left: 50px;
+      right: 50px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+    }
+
+    p { margin-bottom: 10px; }
+    ul, ol { padding-left: 18px; margin-bottom: 10px; }
+    li { margin-bottom: 4px; font-size: 10pt; color: #475569; }
+  </style>
+</head>
+<body>
+
+<!-- Print Bar -->
+<div class="print-bar no-print">
+  <span>CorpMarketer Workflow Guide &mdash; Save as PDF: File &rarr; Print &rarr; Save as PDF</span>
+  <button onclick="window.print()">Print / Save PDF</button>
+</div>
+<div style="height:50px;" class="no-print"></div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- COVER PAGE -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page">
+  <div class="cover">
+    <img src="/logo.png" alt="VerifyAI" />
+    <h1>CorpMarketer</h1>
+    <div class="subtitle">Workflow Guide</div>
+    <div class="divider"></div>
+    <div class="badge-row">
+      <div class="badge-item">
+        <div class="badge-label">For</div>
+        <div class="badge-value">Sales Reps</div>
+      </div>
+      <div class="badge-item">
+        <div class="badge-label">For</div>
+        <div class="badge-value">Supervisors</div>
+      </div>
+    </div>
+    <div class="meta">VerifyAI &middot; Polymedia USA &middot; Confidential &middot; 2026</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE 2: SALES REP OVERVIEW -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="section-tag">Sales Rep Workflow</div>
+      <img src="/logo.png" alt="VerifyAI" />
+    </div>
+
+    <h2>Sales Rep Workflow <span class="role-tag tag-rep">Sales Rep</span></h2>
+    <p class="sub-intro">End-to-end guide: from capturing leads to checking in attendees and logging interaction notes at live events.</p>
+
+    <!-- Overview flow -->
+    <div class="flow-diagram">
+      <div class="flow-box rep">Select Event</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box rep">Add Leads</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box sys">Supervisor Invites</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box sys">RSVPs Arrive</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box rep">QR Check-In</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box rep">Log Notes</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box done">Complete</div>
+    </div>
+
+    <h3>Phase 1 &mdash; Pre-Event: Lead Capture</h3>
+    <div class="wf-timeline">
+      <div class="wf-step">
+        <div class="num blue">1</div>
+        <div class="step-title">Sign In &amp; Select Event</div>
+        <div class="step-desc">Log in with your credentials. On the Dashboard, select the active event you're working. This scopes all your data to that event.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num blue">2</div>
+        <div class="step-title">Add Leads</div>
+        <div class="step-desc">Navigate to <strong>Leads</strong>. Click <strong>"Add Lead"</strong> and enter: Full Name, Title, Company, Email, Phone, and Alt Email. Each lead is automatically associated with your organization.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num blue">3</div>
+        <div class="step-title">Continue Adding Leads</div>
+        <div class="step-desc">Add as many leads as needed. Use the search bar to check for duplicates. Your Supervisor will review and promote leads to the invite list.</div>
+      </div>
+    </div>
+
+    <!-- Screen mockup: Leads page -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mockup-dot dot-r"></div>
+        <div class="mockup-dot dot-y"></div>
+        <div class="mockup-dot dot-g"></div>
+        <div class="mockup-title">CorpMarketer &mdash; Leads</div>
+      </div>
+      <div class="mockup-body">
+        <div class="mock-sidebar">
+          <div class="mock-nav">
+            <div class="mock-nav-item">⌂ Dashboard</div>
+            <div class="mock-nav-item active">◉ Leads</div>
+            <div class="mock-nav-item">⊞ QR Scanner</div>
+            <div class="mock-nav-item">◎ Interactions</div>
+          </div>
+          <div class="mock-main">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div class="mock-heading">Leads</div>
+              <div class="mock-btn">+ Add Lead</div>
+            </div>
+            <div class="mock-input">Search leads...</div>
+            <table class="mock-table">
+              <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Email</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Sarah Chen</strong></td><td>VP Marketing</td><td>TechCorp</td><td>sarah@techcorp.com</td><td><span class="mock-badge mb-gray">lead</span></td></tr>
+                <tr><td><strong>James Rodriguez</strong></td><td>CTO</td><td>InnovateCo</td><td>james@innovateco.com</td><td><span class="mock-badge mb-gray">lead</span></td></tr>
+                <tr><td><strong>Emily Park</strong></td><td>Director</td><td>MediaPro</td><td>emily@mediapro.com</td><td><span class="mock-badge mb-gray">lead</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div><strong>Pro tip:</strong> Add leads as you meet them — at networking events, trade shows, or through referrals. The sooner they're in the system, the sooner your Supervisor can include them in email campaigns.</div>
+    </div>
+
+    <div class="page-footer">
+      <span>CorpMarketer Workflow Guide</span>
+      <span>VerifyAI &middot; Polymedia USA &middot; Page 2</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE 3: SALES REP — RSVP & EVENT DAY -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="section-tag">Sales Rep Workflow</div>
+      <img src="/logo.png" alt="VerifyAI" />
+    </div>
+
+    <h3>Phase 2 &mdash; RSVP Period (Managed by Supervisor)</h3>
+    <p>During this phase, your Supervisor promotes your leads to the invite list, sends invitation emails, and monitors RSVPs. You don't need to take action, but you can track status in the Dashboard stats.</p>
+
+    <div class="callout info">
+      <span class="callout-icon">📬</span>
+      <div>Invitees receive an email with <strong>Accept</strong> and <strong>Decline</strong> buttons. When they accept, the system generates a QR code and manual check-in code for event day.</div>
+    </div>
+
+    <h3>Phase 3 &mdash; Live Event: QR Check-In</h3>
+    <div class="wf-timeline">
+      <div class="wf-step">
+        <div class="num green">4</div>
+        <div class="step-title">Open QR Scanner on Your Phone</div>
+        <div class="step-desc">Navigate to <strong>QR Scanner</strong>. Tap <strong>"Start Scanner"</strong>. Allow camera access when prompted.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num green">5</div>
+        <div class="step-title">Scan Attendee QR Codes</div>
+        <div class="step-desc">Point your phone camera at the attendee's QR code. The system instantly shows their <strong>name, title, and organization</strong>.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num green">6</div>
+        <div class="step-title">Manual Check-In (Fallback)</div>
+        <div class="step-desc">If scanning fails, ask the attendee for their <strong>manual check-in code</strong> (shown in their confirmation email). Enter it and click <strong>"Check In"</strong>.</div>
+      </div>
+    </div>
+
+    <!-- Phone mockup: QR Scanner check-in result -->
+    <div style="display:flex;gap:30px;align-items:flex-start;margin:20px 0;">
+      <div class="mock-phone">
+        <div class="mock-phone-screen">
+          <div class="mock-phone-status">CorpMarketer</div>
+          <div class="mock-phone-body" style="text-align:center;padding-top:16px;">
+            <div style="width:40px;height:40px;background:#dcfce7;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;">
+              <span style="color:#16a34a;font-size:16pt;font-weight:bold;">&#10003;</span>
+            </div>
+            <div style="font-size:10pt;font-weight:700;color:#0f172a;">Checked In!</div>
+            <div style="margin:10px 0;padding:8px;background:#f8fafc;border-radius:6px;text-align:left;">
+              <div style="font-size:9pt;font-weight:700;color:#0f172a;">Sarah Chen</div>
+              <div style="font-size:7pt;color:#4f46e5;">VP Marketing</div>
+              <div style="font-size:7pt;color:#64748b;">TechCorp</div>
+              <div style="font-size:6pt;color:#94a3b8;margin-top:2px;">Org: Acme Sales</div>
+            </div>
+            <div style="text-align:left;margin-top:10px;">
+              <div style="font-size:7pt;font-weight:600;color:#374151;margin-bottom:3px;">Interaction Notes</div>
+              <div style="border:1px solid #d1d5db;border-radius:4px;padding:6px;font-size:6.5pt;color:#9ca3af;min-height:40px;">Add notes about this interaction...</div>
+              <div class="mock-btn" style="margin-top:6px;">Save Notes</div>
+            </div>
+          </div>
+          <div class="mock-phone-bottom">
+            <div class="mock-phone-tab"><span class="tab-icon">⌂</span>Home</div>
+            <div class="mock-phone-tab"><span class="tab-icon">◉</span>Leads</div>
+            <div class="mock-phone-tab active"><span class="tab-icon">⊞</span>Scanner</div>
+            <div class="mock-phone-tab"><span class="tab-icon">◎</span>Notes</div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;padding-top:10px;">
+        <h3>What You See After Scanning</h3>
+        <p style="font-size:10pt;">After a successful scan, the check-in screen displays:</p>
+        <ul>
+          <li><strong>Full name</strong> of the attendee</li>
+          <li><strong>Title</strong> (e.g., VP Marketing)</li>
+          <li><strong>Company</strong> name</li>
+          <li><strong>Organization</strong> they belong to</li>
+        </ul>
+        <p style="font-size:10pt;">You can immediately add interaction notes — what you discussed, their interests, follow-up actions — then tap <strong>"Save Notes"</strong>.</p>
+        <div class="callout tip" style="margin-top:12px;">
+          <span class="callout-icon">📝</span>
+          <div>Log notes while the conversation is fresh! These are visible to your entire team and help with post-event follow-up.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Phase 4 &mdash; Live Event: Interaction Notes</h3>
+    <div class="wf-timeline">
+      <div class="wf-step">
+        <div class="num amber">7</div>
+        <div class="step-title">Navigate to Interactions</div>
+        <div class="step-desc">Go to <strong>My Interactions</strong> to see all customers. Select a customer from the list to view their full history.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num amber">8</div>
+        <div class="step-title">Add Notes for Any Customer</div>
+        <div class="step-desc">Select a customer, type your notes in the <strong>"Add a Note"</strong> box, and click <strong>"Save Note"</strong>. Multiple team members can add notes to the same customer.</div>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <span>CorpMarketer Workflow Guide</span>
+      <span>VerifyAI &middot; Polymedia USA &middot; Page 3</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE 4: SALES REP — INTERACTIONS SCREEN -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="section-tag">Sales Rep Workflow</div>
+      <img src="/logo.png" alt="VerifyAI" />
+    </div>
+
+    <!-- Screen mockup: Interactions page -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mockup-dot dot-r"></div>
+        <div class="mockup-dot dot-y"></div>
+        <div class="mockup-dot dot-g"></div>
+        <div class="mockup-title">CorpMarketer &mdash; My Interactions</div>
+      </div>
+      <div class="mockup-body">
+        <div style="display:flex;gap:12px;">
+          <!-- Customer list -->
+          <div style="width:180px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;flex-shrink:0;">
+            <div style="padding:6px;border-bottom:1px solid #e2e8f0;">
+              <div class="mock-input" style="margin:0;">Search customers...</div>
+            </div>
+            <div style="padding:0;">
+              <div style="padding:6px 8px;background:#eef2ff;border-left:2px solid #4338ca;">
+                <div style="font-size:7.5pt;font-weight:700;color:#0f172a;">Sarah Chen</div>
+                <div style="font-size:6pt;color:#64748b;">VP Marketing &middot; TechCorp</div>
+                <div style="font-size:6pt;color:#4f46e5;font-weight:600;">3 notes</div>
+              </div>
+              <div style="padding:6px 8px;border-bottom:1px solid #f1f5f9;">
+                <div style="font-size:7.5pt;font-weight:600;color:#334155;">James Rodriguez</div>
+                <div style="font-size:6pt;color:#64748b;">CTO &middot; InnovateCo</div>
+                <div style="font-size:6pt;color:#94a3b8;">1 note</div>
+              </div>
+              <div style="padding:6px 8px;border-bottom:1px solid #f1f5f9;">
+                <div style="font-size:7.5pt;font-weight:600;color:#334155;">Emily Park</div>
+                <div style="font-size:6pt;color:#64748b;">Director &middot; MediaPro</div>
+                <div style="font-size:6pt;color:#94a3b8;">No interactions</div>
+              </div>
+            </div>
+          </div>
+          <!-- Detail panel -->
+          <div style="flex:1;">
+            <!-- Customer header -->
+            <div class="mock-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <div style="font-size:10pt;font-weight:700;color:#0f172a;">Sarah Chen</div>
+                  <div style="font-size:7pt;color:#4f46e5;">VP Marketing</div>
+                  <div style="font-size:7pt;color:#64748b;">TechCorp</div>
+                  <div style="font-size:6pt;color:#94a3b8;margin-top:2px;">sarah@techcorp.com &middot; (555) 123-4567</div>
+                </div>
+                <span class="mock-badge mb-green">attended</span>
+              </div>
+            </div>
+            <!-- Add note -->
+            <div class="mock-card">
+              <div style="font-size:7pt;font-weight:600;color:#374151;margin-bottom:4px;">Add a Note</div>
+              <div style="border:1px solid #d1d5db;border-radius:4px;padding:6px;font-size:6.5pt;color:#9ca3af;min-height:30px;background:#fff;">Interested in our enterprise package. Schedule demo next week...</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                <div style="font-size:6pt;color:#94a3b8;">Logged as: John Smith</div>
+                <div class="mock-btn">Save Note</div>
+              </div>
+            </div>
+            <!-- History -->
+            <div class="mock-card" style="padding:0;">
+              <div style="padding:6px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                <div style="font-size:7pt;font-weight:700;color:#475569;">Interaction History (3)</div>
+              </div>
+              <div style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                  <div><span class="mock-badge mb-purple">QR Check-in</span> <span style="font-size:6pt;color:#94a3b8;margin-left:4px;">by John Smith</span></div>
+                  <span style="font-size:6pt;color:#94a3b8;">Today 2:30 PM</span>
+                </div>
+                <div style="font-size:7pt;color:#475569;">Checked in via QR scan</div>
+              </div>
+              <div style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                  <div><span class="mock-badge mb-blue">Note</span> <span style="font-size:6pt;color:#94a3b8;margin-left:4px;">by Lisa Wong</span></div>
+                  <span style="font-size:6pt;color:#94a3b8;">Today 1:15 PM</span>
+                </div>
+                <div style="font-size:7pt;color:#475569;">Pre-briefed on new product line. Very interested in Q3 launch.</div>
+              </div>
+              <div style="padding:8px 10px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                  <div><span class="mock-badge mb-green">RSVP Accept</span></div>
+                  <span style="font-size:6pt;color:#94a3b8;">Mar 10, 9:22 AM</span>
+                </div>
+                <div style="font-size:7pt;color:#475569;">Customer accepted the invitation</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">👥</span>
+      <div><strong>Multi-user notes:</strong> Notice how notes from different team members (John Smith, Lisa Wong) all appear in the same customer's history. This creates a complete engagement picture for post-event follow-up.</div>
+    </div>
+
+    <h3>Sales Rep Quick Reference</h3>
+    <div class="two-col">
+      <div>
+        <p style="font-weight:700;font-size:10pt;color:#0f172a;margin-bottom:8px;">Your Pages</p>
+        <ul>
+          <li><strong>Dashboard</strong> &mdash; Select event, view stats</li>
+          <li><strong>Leads</strong> &mdash; Add/edit/search your org's leads</li>
+          <li><strong>QR Scanner</strong> &mdash; Check in attendees</li>
+          <li><strong>Interactions</strong> &mdash; View &amp; add notes per customer</li>
+        </ul>
+      </div>
+      <div>
+        <p style="font-weight:700;font-size:10pt;color:#0f172a;margin-bottom:8px;">Key Tips</p>
+        <ul>
+          <li>Always select your event <strong>first</strong></li>
+          <li>Add leads <strong>promptly</strong> as you meet them</li>
+          <li>Log notes <strong>immediately</strong> after conversations</li>
+          <li>Use your <strong>phone</strong> at events for QR scanning</li>
+          <li>If QR fails, use the <strong>manual code</strong></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <span>CorpMarketer Workflow Guide</span>
+      <span>VerifyAI &middot; Polymedia USA &middot; Page 4</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE 5: SUPERVISOR OVERVIEW -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="section-tag">Supervisor Workflow</div>
+      <img src="/logo.png" alt="VerifyAI" />
+    </div>
+
+    <h2>Supervisor Workflow <span class="role-tag tag-sup">Supervisor</span></h2>
+    <p class="sub-intro">Oversee the full event lifecycle: review leads, manage invitations, monitor RSVPs, coordinate live event check-ins, and generate post-event reports.</p>
+
+    <!-- Overview flow -->
+    <div class="flow-diagram">
+      <div class="flow-box sup">Review Leads</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box sup">Promote to Invited</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box sup">Send Invitations</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box sup">Monitor RSVPs</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box sup">Send Confirmations</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box sup">Monitor Event</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box sup">Post-Event Reports</div>
+    </div>
+
+    <h3>Phase 1 &mdash; Pre-Event: Review &amp; Promote Leads</h3>
+    <div class="wf-timeline">
+      <div class="wf-step">
+        <div class="num amber">1</div>
+        <div class="step-title">Review Leads from Sales Reps</div>
+        <div class="step-desc">Navigate to <strong>Leads</strong>. You see leads from <strong>all organizations</strong>. Review the list for quality and completeness — ensure contacts have valid emails.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num amber">2</div>
+        <div class="step-title">Promote Leads to Invited</div>
+        <div class="step-desc">Go to <strong>Invited</strong> &rarr; <strong>Promote Leads</strong> tab. Select leads using checkboxes (or "Select All"), then click <strong>"Promote to Invited"</strong>. This moves them into the invitation pipeline.</div>
+      </div>
+    </div>
+
+    <h3>Phase 2 &mdash; Email Campaigns: Invite &amp; Follow Up</h3>
+    <div class="wf-timeline">
+      <div class="wf-step">
+        <div class="num amber">3</div>
+        <div class="step-title">Send Initial Invitations</div>
+        <div class="step-desc">Switch to the <strong>Invited List</strong> tab. Use <strong>"Not Yet Invited"</strong> to select recipients who haven't been emailed. Choose <strong>Invitation</strong> type and click <strong>"Send Emails"</strong>.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num amber">4</div>
+        <div class="step-title">Monitor RSVPs &amp; Send Reminders</div>
+        <div class="step-desc">Check the RSVP status badges. Use <strong>"Pending RSVP"</strong> to select non-respondents, choose <strong>Reminder</strong> type, and send follow-up emails.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num amber">5</div>
+        <div class="step-title">Send Confirmations with QR Codes</div>
+        <div class="step-desc">Use <strong>"Accepted"</strong> to select confirmed attendees. Choose <strong>Confirmation</strong> type and send. This email includes the <strong>QR code</strong> and <strong>manual check-in code</strong> for event day.</div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>Duplicate prevention:</strong> The system shows email history badges for each invitee and warns you before re-sending the same email type. Always review the send summary panel before clicking "Send Emails".</div>
+    </div>
+
+    <div class="page-footer">
+      <span>CorpMarketer Workflow Guide</span>
+      <span>VerifyAI &middot; Polymedia USA &middot; Page 5</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE 6: SUPERVISOR — INVITED SCREEN & EMAIL -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="section-tag">Supervisor Workflow</div>
+      <img src="/logo.png" alt="VerifyAI" />
+    </div>
+
+    <!-- Screen mockup: Invited page -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mockup-dot dot-r"></div>
+        <div class="mockup-dot dot-y"></div>
+        <div class="mockup-dot dot-g"></div>
+        <div class="mockup-title">CorpMarketer &mdash; Invited List</div>
+      </div>
+      <div class="mockup-body">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div class="mock-heading">Invited List</div>
+          <div style="display:flex;gap:4px;">
+            <div class="mock-btn gray" style="font-size:6pt;">Select All</div>
+            <div class="mock-btn gray" style="font-size:6pt;">Pending RSVP</div>
+            <div class="mock-btn gray" style="font-size:6pt;">Accepted</div>
+            <div class="mock-btn gray" style="font-size:6pt;">Not Yet Invited</div>
+          </div>
+        </div>
+        <table class="mock-table">
+          <thead><tr><th>☐</th><th>Name</th><th>Company</th><th>Status</th><th>Emails Sent</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>☑</td>
+              <td><strong>Sarah Chen</strong></td>
+              <td>TechCorp</td>
+              <td><span class="mock-badge mb-green">accepted</span></td>
+              <td><span class="mock-badge mb-indigo">invitation</span> <span class="mock-badge mb-green">confirmation</span></td>
+            </tr>
+            <tr>
+              <td>☑</td>
+              <td><strong>James Rodriguez</strong></td>
+              <td>InnovateCo</td>
+              <td><span class="mock-badge mb-blue">invited</span></td>
+              <td><span class="mock-badge mb-indigo">invitation</span> <span class="mock-badge mb-amber">reminder</span></td>
+            </tr>
+            <tr>
+              <td>☐</td>
+              <td><strong>Emily Park</strong></td>
+              <td>MediaPro</td>
+              <td><span class="mock-badge mb-blue">invited</span></td>
+              <td><span class="mock-badge mb-indigo">invitation</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:10px;padding:10px;background:#f8fafc;border-radius:6px;display:flex;gap:12px;align-items:center;">
+          <div style="font-size:7pt;">
+            <span style="font-weight:700;">Email Type:</span>
+            <span style="margin-left:6px;">&#9673; Invitation &nbsp; &#9673; <strong style="color:#4f46e5;">Reminder</strong> &nbsp; &#9673; Confirmation &nbsp; &#9673; Event Update &nbsp; &#9673; Custom</span>
+          </div>
+          <div class="mock-btn" style="margin-left:auto;">Send 2 Emails</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Email Types at a Glance</h3>
+    <table class="mock-table" style="font-size:9pt;">
+      <thead><tr><th style="background:#78350f;color:#fff;">Type</th><th style="background:#78350f;color:#fff;">Purpose</th><th style="background:#78350f;color:#fff;">When to Send</th></tr></thead>
+      <tbody>
+        <tr><td><span class="mock-badge mb-indigo" style="font-size:8pt;">Invitation</span></td><td>Initial event invite with RSVP Accept/Decline buttons</td><td>First outreach after promoting leads</td></tr>
+        <tr><td><span class="mock-badge mb-amber" style="font-size:8pt;">Reminder</span></td><td>Follow-up for non-respondents</td><td>3-5 days after invitation, or 1 week before event</td></tr>
+        <tr><td><span class="mock-badge mb-green" style="font-size:8pt;">Confirmation</span></td><td>Attendance confirmed + QR code + manual code</td><td>After attendee accepts RSVP</td></tr>
+        <tr><td><span class="mock-badge mb-blue" style="font-size:8pt;">Event Update</span></td><td>Notify about changed event details</td><td>When venue, time, or details change</td></tr>
+        <tr><td><span class="mock-badge mb-gray" style="font-size:8pt;">Custom</span></td><td>Free-form email with custom subject &amp; body</td><td>Special announcements, thank-you messages</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Phase 3 &mdash; Live Event: Monitor Check-Ins &amp; Notes</h3>
+    <div class="wf-timeline">
+      <div class="wf-step">
+        <div class="num amber">6</div>
+        <div class="step-title">Monitor Real-Time Check-Ins</div>
+        <div class="step-desc">Navigate to <strong>Interactions</strong>. As Sales Reps scan QR codes and log notes, you see everything in real-time across all team members. Select any customer to view their full engagement history.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num amber">7</div>
+        <div class="step-title">Add Supervisor Notes</div>
+        <div class="step-desc">You can also add your own interaction notes to any customer. Select them from the list, type your notes, and click <strong>"Save Note"</strong>. Your notes are visible to the entire team.</div>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">👁️</span>
+      <div><strong>Full visibility:</strong> As a Supervisor, you see notes from ALL sales reps across ALL organizations — giving you a complete picture of team engagement at the event.</div>
+    </div>
+
+    <div class="page-footer">
+      <span>CorpMarketer Workflow Guide</span>
+      <span>VerifyAI &middot; Polymedia USA &middot; Page 6</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE 7: SUPERVISOR — REPORTS -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="section-tag">Supervisor Workflow</div>
+      <img src="/logo.png" alt="VerifyAI" />
+    </div>
+
+    <h3>Phase 4 &mdash; Post-Event: Reports &amp; Analysis</h3>
+    <div class="wf-timeline">
+      <div class="wf-step">
+        <div class="num amber">8</div>
+        <div class="step-title">Review Overview Reports</div>
+        <div class="step-desc">Navigate to <strong>Reports</strong> &rarr; <strong>Overview</strong> tab. View organization-level statistics and a sortable master table of all leads with their statuses, RSVP responses, and interaction counts.</div>
+      </div>
+      <div class="wf-step">
+        <div class="num amber">9</div>
+        <div class="step-title">Audit Email Log</div>
+        <div class="step-desc">Switch to the <strong>Email Log</strong> tab. Search and review every outbound email sent. Click any entry to see a <strong>full HTML preview</strong> of what the recipient received. Use the <strong>print</strong> button for records.</div>
+      </div>
+    </div>
+
+    <!-- Screen mockup: Reports page -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mockup-dot dot-r"></div>
+        <div class="mockup-dot dot-y"></div>
+        <div class="mockup-dot dot-g"></div>
+        <div class="mockup-title">CorpMarketer &mdash; Reports &mdash; Overview</div>
+      </div>
+      <div class="mockup-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <div style="flex:1;background:#eef2ff;border-radius:6px;padding:8px 10px;text-align:center;">
+            <div style="font-size:6pt;color:#6366f1;text-transform:uppercase;font-weight:600;">Total Leads</div>
+            <div style="font-size:16pt;font-weight:800;color:#312e81;">47</div>
+          </div>
+          <div style="flex:1;background:#fef3c7;border-radius:6px;padding:8px 10px;text-align:center;">
+            <div style="font-size:6pt;color:#d97706;text-transform:uppercase;font-weight:600;">Invited</div>
+            <div style="font-size:16pt;font-weight:800;color:#92400e;">38</div>
+          </div>
+          <div style="flex:1;background:#dcfce7;border-radius:6px;padding:8px 10px;text-align:center;">
+            <div style="font-size:6pt;color:#16a34a;text-transform:uppercase;font-weight:600;">Accepted</div>
+            <div style="font-size:16pt;font-weight:800;color:#166534;">29</div>
+          </div>
+          <div style="flex:1;background:#dbeafe;border-radius:6px;padding:8px 10px;text-align:center;">
+            <div style="font-size:6pt;color:#2563eb;text-transform:uppercase;font-weight:600;">Attended</div>
+            <div style="font-size:16pt;font-weight:800;color:#1e40af;">24</div>
+          </div>
+          <div style="flex:1;background:#fee2e2;border-radius:6px;padding:8px 10px;text-align:center;">
+            <div style="font-size:6pt;color:#dc2626;text-transform:uppercase;font-weight:600;">Declined</div>
+            <div style="font-size:16pt;font-weight:800;color:#991b1b;">4</div>
+          </div>
+        </div>
+        <table class="mock-table">
+          <thead><tr><th>Name</th><th>Company</th><th>Org</th><th>Status</th><th>RSVP</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Sarah Chen</strong></td><td>TechCorp</td><td>Acme Sales</td><td><span class="mock-badge mb-green">attended</span></td><td>Accepted</td><td>3</td></tr>
+            <tr><td><strong>James Rodriguez</strong></td><td>InnovateCo</td><td>Acme Sales</td><td><span class="mock-badge mb-blue">invited</span></td><td>Pending</td><td>1</td></tr>
+            <tr><td><strong>Emily Park</strong></td><td>MediaPro</td><td>Beta Corp</td><td><span class="mock-badge mb-green">attended</span></td><td>Accepted</td><td>5</td></tr>
+            <tr><td><strong>Michael Kim</strong></td><td>StartupXYZ</td><td>Beta Corp</td><td><span class="mock-badge mb-amber">invited</span></td><td>Pending</td><td>0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3>Supervisor Quick Reference</h3>
+    <div class="two-col">
+      <div>
+        <p style="font-weight:700;font-size:10pt;color:#0f172a;margin-bottom:8px;">Your Pages</p>
+        <ul>
+          <li><strong>Dashboard</strong> &mdash; Stats &amp; event selector</li>
+          <li><strong>Events</strong> &mdash; View events (read-only)</li>
+          <li><strong>Leads</strong> &mdash; All leads, all orgs</li>
+          <li><strong>Invited</strong> &mdash; Promote &amp; email campaigns</li>
+          <li><strong>QR Scanner</strong> &mdash; Check in attendees</li>
+          <li><strong>Interactions</strong> &mdash; All notes, all reps</li>
+          <li><strong>Reports</strong> &mdash; Stats, tables &amp; email log</li>
+        </ul>
+      </div>
+      <div>
+        <p style="font-weight:700;font-size:10pt;color:#0f172a;margin-bottom:8px;">Requires Admin</p>
+        <ul>
+          <li>Creating/editing/deleting events</li>
+          <li>Managing user accounts</li>
+          <li>Configuring SMTP email settings</li>
+          <li>Updating company branding</li>
+        </ul>
+        <div class="callout info" style="margin-top:10px;">
+          <span class="callout-icon">🔑</span>
+          <div style="font-size:9pt;">Contact your Admin for these actions.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <span>CorpMarketer Workflow Guide</span>
+      <span>VerifyAI &middot; Polymedia USA &middot; Page 7</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE 8: BACK COVER -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page">
+  <div class="cover" style="background:linear-gradient(160deg, #0f172a 0%, #312e81 50%, #06b6d4 100%);">
+    <img src="/logo.png" alt="VerifyAI" style="margin-bottom:30px;" />
+    <h1 style="font-size:28pt;">CorpMarketer</h1>
+    <div class="subtitle" style="margin-bottom:30px;">Event Lead Tracking &amp; Engagement Platform</div>
+    <div class="divider"></div>
+    <div style="max-width:400px;text-align:center;">
+      <p style="font-size:11pt;opacity:.8;margin-bottom:30px;">For questions about CorpMarketer, contact your system administrator or visit the in-app User Guide (accessible from the sidebar).</p>
+    </div>
+    <div style="margin-top:40px;">
+      <p style="font-size:9pt;opacity:.5;">VerifyAI &middot; Polymedia USA</p>
+      <p style="font-size:8pt;opacity:.4;">&copy; 2026 Polymedia. All rights reserved. Confidential.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CorpMarketer — Sales Rep Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      color: #1a1a2e;
+      background: #f7f8fc;
+    }
+
+    .page-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
+      color: #fff;
+      padding: 48px 24px 40px;
+      margin-bottom: 48px;
+    }
+    header .inner { max-width: 860px; margin: 0 auto; }
+    header .label {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 3px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    header h1 { font-size: 2.1rem; font-weight: 700; margin-bottom: 8px; }
+    header p  { font-size: 1.05rem; opacity: .85; }
+
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 48px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    h3 {
+      font-weight: 700;
+      color: #2563eb;
+      margin: 22px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-size: .85rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+
+    .action-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 0;
+      margin-bottom: 20px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .action-card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 24px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .action-card-header .icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .icon-blue   { background: #dbeafe; }
+    .icon-green  { background: #dcfce7; }
+    .icon-purple { background: #ede9fe; }
+    .icon-teal   { background: #ccfbf1; }
+
+    .action-card-header .title-wrap h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+    .action-card-header .title-wrap .trigger {
+      font-size: .82rem;
+      color: #64748b;
+    }
+    .action-card-body { padding: 20px 24px; }
+
+    .field-list { list-style: none; padding: 0; }
+    .field-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .field-list li:last-child { border-bottom: none; }
+    .field-name {
+      font-weight: 600;
+      color: #0f172a;
+      min-width: 190px;
+      flex-shrink: 0;
+      font-size: .95rem;
+    }
+    .field-desc { color: #475569; font-size: .9rem; }
+    .req { color: #ef4444; font-size: .75rem; font-weight: 700; margin-left: 4px; }
+
+    .callout {
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: .93rem;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .callout.info  { background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e40af; }
+    .callout.warn  { background: #fffbeb; border-left: 4px solid #f59e0b; color: #92400e; }
+    .callout.tip   { background: #f0fdf4; border-left: 4px solid #22c55e; color: #166534; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; margin: 12px 0; }
+    thead tr { background: #1e3a5f; color: #fff; }
+    thead th { padding: 10px 14px; text-align: left; font-weight: 600; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    tbody td { padding: 9px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+
+    .tab-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .tab-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .tab-card .tab-icon { font-size: 1.5rem; margin-bottom: 6px; }
+    .tab-card .tab-name { font-weight: 700; font-size: .9rem; color: #0f172a; }
+    .tab-card .tab-desc { font-size: .8rem; color: #64748b; margin-top: 4px; }
+
+    ol.steps { padding-left: 22px; }
+    ol.steps li { margin-bottom: 10px; }
+
+    p { margin-bottom: 12px; }
+
+    .workflow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .wf-step {
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: .85rem;
+      font-weight: 600;
+      color: #334155;
+      text-align: center;
+    }
+    .wf-step.rep { background: #dbeafe; color: #1e40af; }
+    .wf-step.other { background: #f1f5f9; color: #64748b; font-style: italic; }
+    .wf-arrow { color: #94a3b8; font-size: 1.1rem; }
+
+    footer {
+      text-align: center;
+      color: #94a3b8;
+      font-size: .85rem;
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="inner">
+    <div class="label">Sales Rep Guide</div>
+    <h1>CorpMarketer</h1>
+    <p>Sales representative reference — lead capture and event engagement</p>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+  <!-- Overview -->
+  <div class="card">
+    <p>As a <strong>Sales Rep</strong>, your primary role is to add leads (potential event attendees), scan QR codes at events for check-in, and log your interactions with leads. You see data scoped to <strong>your organization only</strong>.</p>
+    <p><strong>Login URL:</strong> <code style="background:#f1f5f9;padding:2px 8px;border-radius:5px;">https://your-app-url.run.app</code></p>
+  </div>
+
+  <!-- Getting Started -->
+  <h2>Getting Started</h2>
+  <div class="card">
+    <h3>Your Account</h3>
+    <p>Your Admin creates your account and assigns you to an organization. If you need account changes (password reset, role change, etc.), contact your Admin.</p>
+
+    <h3>Signing In</h3>
+    <ol class="steps">
+      <li>Navigate to the app URL.</li>
+      <li>Enter your <strong>Email / Username</strong> and <strong>Password</strong>.</li>
+      <li>Click <strong>"Sign In"</strong>.</li>
+    </ol>
+
+    <h3>First Steps</h3>
+    <ol class="steps">
+      <li>Go to the <strong>Dashboard</strong> and select an active event.</li>
+      <li>Start adding leads in the <strong>Leads</strong> page.</li>
+    </ol>
+  </div>
+
+  <!-- Navigation -->
+  <h2>Your Navigation</h2>
+  <p>Sales Reps see four navigation items in the sidebar:</p>
+  <div class="tab-row">
+    <div class="tab-card">
+      <div class="tab-icon">⌂</div>
+      <div class="tab-name">Dashboard</div>
+      <div class="tab-desc">Stats &amp; event selector</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">◉</div>
+      <div class="tab-name">Leads</div>
+      <div class="tab-desc">Your org's leads</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">⊞</div>
+      <div class="tab-name">QR Scanner</div>
+      <div class="tab-desc">Event check-in</div>
+    </div>
+    <div class="tab-card">
+      <div class="tab-icon">◎</div>
+      <div class="tab-name">My Interactions</div>
+      <div class="tab-desc">Your interaction logs</div>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <span class="callout-icon">👁️</span>
+    <div><strong>Data visibility:</strong> You only see leads and interactions belonging to your organization. Admins and Supervisors have cross-organization visibility.</div>
+  </div>
+
+  <!-- Dashboard -->
+  <h2>Dashboard</h2>
+  <div class="card">
+    <h3>Selecting an Event</h3>
+    <p>The first thing you should do is select an active event. This scopes the Leads page to show leads associated with that event.</p>
+    <ol class="steps">
+      <li>On the Dashboard, you'll see available events listed.</li>
+      <li>Click an event to select it.</li>
+      <li>The selected event name appears at the top. Click <strong>"Change"</strong> to switch.</li>
+    </ol>
+    <p>The stats cards show platform-wide metrics: Active Events, Total Leads, Invited, and Attended.</p>
+  </div>
+
+  <!-- Leads -->
+  <h2>Leads</h2>
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-blue">◉</div>
+      <div class="title-wrap">
+        <h4>Adding &amp; Managing Leads</h4>
+        <div class="trigger">Scoped to your organization</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>Leads are potential attendees you want to track for the event. You see only leads from <strong>your organization</strong>.</p>
+
+      <h3>Adding a New Lead</h3>
+      <ol class="steps">
+        <li>Click <strong>"Add Lead"</strong>.</li>
+        <li>Fill in the form:</li>
+      </ol>
+      <ul class="field-list">
+        <li><span class="field-name">Full Name<span class="req">*</span></span><span class="field-desc">The lead's full name</span></li>
+        <li><span class="field-name">Title</span><span class="field-desc">Job title or position</span></li>
+        <li><span class="field-name">Company<span class="req">*</span></span><span class="field-desc">The lead's company name</span></li>
+        <li><span class="field-name">Email<span class="req">*</span></span><span class="field-desc">Primary email address</span></li>
+        <li><span class="field-name">Phone</span><span class="field-desc">Phone number</span></li>
+        <li><span class="field-name">Alt Email</span><span class="field-desc">Secondary email address</span></li>
+      </ul>
+      <ol class="steps" start="3">
+        <li>Click <strong>"Create"</strong>.</li>
+      </ol>
+      <p>The lead is automatically associated with your organization and (if selected) the active event.</p>
+
+      <h3>Editing a Lead</h3>
+      <p>Click <strong>"Edit"</strong> next to a lead to update their details. Make changes and click <strong>"Update"</strong>.</p>
+
+      <h3>Deleting a Lead</h3>
+      <p>Click <strong>"Delete"</strong> and confirm. This permanently removes the lead.</p>
+
+      <h3>Searching</h3>
+      <p>Use the search bar to filter leads by name, email, company, or phone number.</p>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div><strong>Tip:</strong> Select an event on the Dashboard first to scope leads to that event. If no event is selected, you'll see all leads for your organization.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Scanner -->
+  <h2>QR Scanner</h2>
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-green">⊞</div>
+      <div class="title-wrap">
+        <h4>Event Check-In</h4>
+        <div class="trigger">Scan attendee QR codes at the event</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>At the event, use the QR Scanner to check in attendees who have confirmed their RSVP.</p>
+
+      <h3>Using the Camera</h3>
+      <ol class="steps">
+        <li>Open the <strong>QR Scanner</strong> page on your phone or tablet.</li>
+        <li>Click <strong>"Start Scanner"</strong>. Allow camera access if prompted.</li>
+        <li>Point your camera at the attendee's QR code.</li>
+        <li>The system reads the code and displays the attendee's <strong>name, title, and organization</strong>.</li>
+        <li>Optionally add <strong>interaction notes</strong> (e.g., "Met at booth 3, interested in product demo") and click <strong>"Save Notes"</strong>.</li>
+      </ol>
+
+      <h3>Manual Check-In</h3>
+      <p>If the camera can't read the QR code:</p>
+      <ol class="steps">
+        <li>Ask the attendee for their <strong>4-character check-in code</strong> (e.g., <code style="background:#f1f5f9;padding:2px 8px;border-radius:5px;font-weight:bold;">K7PN</code> — shown below the QR code in their confirmation email or RSVP page).</li>
+        <li>Type the code in the manual entry field.</li>
+        <li>Click <strong>"Check In"</strong>.</li>
+      </ol>
+
+      <div class="callout tip">
+        <span class="callout-icon">📱</span>
+        <div><strong>Best practice:</strong> Use your phone's rear camera in a well-lit area. Works on all modern browsers.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactions -->
+  <h2>My Interactions</h2>
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-teal">◎</div>
+      <div class="title-wrap">
+        <h4>Logging Interactions</h4>
+        <div class="trigger">You see only your own interaction logs</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>The Interactions page is a <strong>customer-centric note-taking hub</strong>. You see interactions for customers in <strong>your organization</strong>.</p>
+
+      <h3>Viewing Interactions</h3>
+      <ol class="steps">
+        <li>Select a <strong>customer</strong> from the left panel (search by name, title, company, or email).</li>
+        <li>View their full <strong>interaction history</strong> — your notes, QR check-ins, and RSVP events.</li>
+      </ol>
+
+      <h3>Adding Notes</h3>
+      <ol class="steps">
+        <li>Select a customer from the list.</li>
+        <li>Type your notes in the <strong>"Add a Note"</strong> section.</li>
+        <li>Click <strong>"Save Note"</strong>. Your name and timestamp are recorded automatically.</li>
+      </ol>
+
+      <h3>Automatic Interactions</h3>
+      <p>The system automatically logs interactions when you scan an attendee's QR code or when an attendee RSVPs.</p>
+
+      <div class="callout tip">
+        <span class="callout-icon">📝</span>
+        <div><strong>Log interactions promptly.</strong> Detailed notes help your team follow up effectively. Supervisors and Admins can see notes from all team members.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Your Workflow -->
+  <h2>Your Typical Workflow</h2>
+  <div class="workflow">
+    <div class="wf-step rep">Select Event</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step rep">Add Leads</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step other">Admin/Sup sends invites</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step other">RSVPs come in</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step rep">Scan QR at Event</div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step rep">Log Interactions</div>
+  </div>
+
+  <!-- What You Don't Have Access To -->
+  <h2>Features Managed by Admin / Supervisor</h2>
+  <div class="card">
+    <p>The following features are handled by your Admin or Supervisor. You don't need to worry about these:</p>
+    <table>
+      <thead><tr><th>Feature</th><th>Who Manages</th></tr></thead>
+      <tbody>
+        <tr><td>Creating &amp; managing events</td><td>Admin only</td></tr>
+        <tr><td>Promoting leads to invited</td><td>Admin / Supervisor</td></tr>
+        <tr><td>Sending email campaigns</td><td>Admin / Supervisor</td></tr>
+        <tr><td>Viewing reports</td><td>Admin / Supervisor</td></tr>
+        <tr><td>Managing user accounts</td><td>Admin only</td></tr>
+        <tr><td>SMTP &amp; branding settings</td><td>Admin only</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Tips -->
+  <h2>Tips &amp; Best Practices</h2>
+  <div class="card">
+    <ul style="padding-left:20px;color:#475569;">
+      <li style="margin-bottom:10px;"><strong>Always select an event first.</strong> Go to Dashboard and pick your event — this ensures leads are properly associated.</li>
+      <li style="margin-bottom:10px;"><strong>Add leads as you meet them.</strong> The sooner you add a lead, the sooner your team can include them in event communications.</li>
+      <li style="margin-bottom:10px;"><strong>Include all contact info.</strong> Complete lead profiles (email, phone, company) make follow-up easier for the whole team.</li>
+      <li style="margin-bottom:10px;"><strong>Scan QR codes promptly.</strong> Check-in data helps your team know who actually showed up.</li>
+      <li style="margin-bottom:10px;"><strong>Log detailed interaction notes.</strong> Include what was discussed, the lead's interests, and any next steps.</li>
+      <li><strong>Use your phone at events.</strong> The QR Scanner and Lead entry work great on mobile browsers.</li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>
+  <p>CorpMarketer v0.2.0 &nbsp;·&nbsp; Powered by VerifyAI &nbsp;·&nbsp; &copy; Polymedia</p>
+</footer>
+
+</body>
+</html>

@@ -8,11 +8,13 @@ export default function InteractionsPage() {
   const { user } = useAuth();
   const [interactions, setInteractions] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [notes, setNotes] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [newNote, setNewNote] = useState('');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
+  const isManager = user?.role === 'admin' || user?.role === 'supervisor';
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -36,31 +38,30 @@ export default function InteractionsPage() {
     setLoading(false);
   };
 
-  const addInteraction = async (e) => {
-    e.preventDefault();
-    if (!selectedCustomer || !notes.trim()) return;
+  const addNote = async () => {
+    if (!selectedCustomer || !newNote.trim()) return;
+    setSaving(true);
 
     const event = JSON.parse(localStorage.getItem('cm_event') || '{}');
     const res = await fetch('/api/interactions', {
       method: 'POST', headers,
       body: JSON.stringify({
-        customer_id: selectedCustomer,
+        customer_id: selectedCustomer.id,
         event_id: event.id || '',
-        notes,
+        notes: newNote.trim(),
         interaction_type: 'manual_note',
       }),
     });
 
     if (res.ok) {
-      setSelectedCustomer('');
-      setNotes('');
-      setShowForm(false);
+      setNewNote('');
       fetchData();
     }
+    setSaving(false);
   };
 
   const typeLabels = {
-    qr_scan: 'QR Scan',
+    qr_scan: 'QR Check-in',
     manual_note: 'Note',
     rsvp_accept: 'RSVP Accept',
     rsvp_decline: 'RSVP Decline',
@@ -75,76 +76,184 @@ export default function InteractionsPage() {
     email_sent: 'bg-amber-100 text-amber-700',
   };
 
+  // Get interactions for selected customer
+  const customerInteractions = selectedCustomer
+    ? interactions.filter(i => i.customer_id === selectedCustomer.id)
+    : [];
+
+  // Build customer list with interaction counts
+  const customersWithCounts = customers.map(c => ({
+    ...c,
+    interactionCount: interactions.filter(i => i.customer_id === c.id).length,
+    lastInteraction: interactions.find(i => i.customer_id === c.id)?.created_at || null,
+  }));
+
+  const filteredCustomers = customersWithCounts.filter(c =>
+    !search || [c.full_name, c.company_name, c.email, c.title].some(f => f?.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  // Sort: customers with interactions first, then by name
+  const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+    if (a.interactionCount && !b.interactionCount) return -1;
+    if (!a.interactionCount && b.interactionCount) return 1;
+    return (a.full_name || '').localeCompare(b.full_name || '');
+  });
+
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {user?.role === 'admin' ? 'All Interactions' : 'My Interactions'}
-          </h1>
-          <button onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">
-            {showForm ? 'Cancel' : 'Log Interaction'}
-          </button>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          {isManager ? 'Interactions' : 'My Interactions'}
+        </h1>
 
-        {showForm && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <form onSubmit={addInteraction} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
-                <select value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)} required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                  <option value="">Select customer...</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.full_name} ({c.company_name})</option>
-                  ))}
-                </select>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Customer List Panel */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-3 border-b border-gray-200">
+                <input
+                  type="text"
+                  placeholder="Search customers..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} required
-                  placeholder="Describe the interaction..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                {loading ? (
+                  <p className="p-4 text-center text-gray-400 text-sm">Loading...</p>
+                ) : sortedCustomers.length === 0 ? (
+                  <p className="p-4 text-center text-gray-400 text-sm">No customers found</p>
+                ) : sortedCustomers.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCustomer(c)}
+                    className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                      selectedCustomer?.id === c.id ? 'bg-indigo-50 border-l-2 border-l-indigo-600' : ''
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-gray-900 truncate">{c.full_name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {c.title && <p className="text-xs text-gray-500 truncate">{c.title}</p>}
+                      {c.title && c.company_name && <span className="text-xs text-gray-300">·</span>}
+                      {c.company_name && <p className="text-xs text-gray-500 truncate">{c.company_name}</p>}
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      {c.interactionCount > 0 ? (
+                        <span className="text-xs text-indigo-600 font-medium">{c.interactionCount} note{c.interactionCount !== 1 ? 's' : ''}</span>
+                      ) : (
+                        <span className="text-xs text-gray-300">No interactions</span>
+                      )}
+                      {c.status && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          c.status === 'attended' ? 'bg-green-100 text-green-700' :
+                          c.status === 'accepted' ? 'bg-blue-100 text-blue-700' :
+                          c.status === 'declined' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {c.status}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
               </div>
-              <button type="submit" className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
-                Save Interaction
-              </button>
-            </form>
+            </div>
           </div>
-        )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Customer</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Type</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Notes</th>
-                {user?.role === 'admin' && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Rep</th>}
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
-              ) : interactions.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No interactions logged yet</td></tr>
-              ) : interactions.map(i => (
-                <tr key={i.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{i.customer_name}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${typeColors[i.interaction_type] || 'bg-gray-100 text-gray-600'}`}>
-                      {typeLabels[i.interaction_type] || i.interaction_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{i.notes}</td>
-                  {user?.role === 'admin' && <td className="px-4 py-3 text-sm text-gray-500">{i.sales_rep_name}</td>}
-                  <td className="px-4 py-3 text-xs text-gray-400">{new Date(i.created_at).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* Interaction Detail Panel */}
+          <div className="lg:col-span-2">
+            {!selectedCustomer ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <div className="text-4xl mb-3 text-gray-300">◎</div>
+                <p className="text-gray-400">Select a customer to view interactions and add notes</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Customer Header */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">{selectedCustomer.full_name}</h2>
+                      {selectedCustomer.title && <p className="text-sm text-indigo-600">{selectedCustomer.title}</p>}
+                      {selectedCustomer.company_name && <p className="text-sm text-gray-600">{selectedCustomer.company_name}</p>}
+                      <div className="flex gap-4 mt-2 text-xs text-gray-400">
+                        {selectedCustomer.email && <span>{selectedCustomer.email}</span>}
+                        {selectedCustomer.phone && <span>{selectedCustomer.phone}</span>}
+                      </div>
+                    </div>
+                    {selectedCustomer.status && (
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        selectedCustomer.status === 'attended' ? 'bg-green-100 text-green-700' :
+                        selectedCustomer.status === 'accepted' ? 'bg-blue-100 text-blue-700' :
+                        selectedCustomer.status === 'declined' ? 'bg-red-100 text-red-700' :
+                        selectedCustomer.status === 'invited' ? 'bg-amber-100 text-amber-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {selectedCustomer.status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Add Note */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Add a Note</label>
+                  <textarea
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    rows={3}
+                    placeholder="Type your interaction notes here..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-gray-400">Logged as: {user?.full_name}</p>
+                    <button
+                      onClick={addNote}
+                      disabled={!newNote.trim() || saving}
+                      className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {saving ? 'Saving...' : 'Save Note'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Interaction History */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-200 bg-gray-50">
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      Interaction History ({customerInteractions.length})
+                    </h3>
+                  </div>
+
+                  {customerInteractions.length === 0 ? (
+                    <p className="p-6 text-center text-gray-400 text-sm">No interactions recorded yet</p>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {customerInteractions.map(i => (
+                        <div key={i.id} className="px-5 py-4">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${typeColors[i.interaction_type] || 'bg-gray-100 text-gray-600'}`}>
+                                {typeLabels[i.interaction_type] || i.interaction_type}
+                              </span>
+                              {i.sales_rep_name && (
+                                <span className="text-xs text-gray-400">by {i.sales_rep_name}</span>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-400">{new Date(i.created_at).toLocaleString()}</span>
+                          </div>
+                          {i.notes && (
+                            <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{i.notes}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </AppShell>

@@ -95,7 +95,7 @@ export async function PUT(request) {
 
     if (full_name) users[idx].full_name = full_name;
     if (phone !== undefined) users[idx].phone = phone;
-    if (role && ['admin', 'sales_rep'].includes(role)) users[idx].role = role;
+    if (role && ['admin', 'supervisor', 'sales_rep'].includes(role)) users[idx].role = role;
 
     if (password) {
       users[idx].password_hash = hashPassword(password);
