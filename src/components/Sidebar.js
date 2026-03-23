@@ -62,8 +62,8 @@ export default function Sidebar({ user, onLogout }) {
             <div className="flex items-center gap-2">
               <img src="/logo.png" alt="VerifyAI" className="h-8 w-8 object-contain" />
               <div>
-                <h1 className="text-lg font-bold text-indigo-600">CorpMarketer</h1>
-                <p className="text-xs text-gray-400">Event Platform</p>
+                <h1 className="text-lg font-bold text-indigo-600">FunnelFlow</h1>
+                <p className="text-xs text-gray-400">Sales Funnel Platform</p>
               </div>
             </div>
           )}
@@ -128,7 +128,7 @@ export default function Sidebar({ user, onLogout }) {
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="VerifyAI" className="h-7 w-7 object-contain" />
-          <span className="text-base font-bold text-indigo-600">CorpMarketer</span>
+          <span className="text-base font-bold text-indigo-600">FunnelFlow</span>
         </div>
         <div className="flex items-center gap-3">
           <a href={guideUrl(user?.role)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 text-sm">📖</a>

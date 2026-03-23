@@ -55,8 +55,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img src="/logo.png" alt="VerifyAI" className="h-12 mx-auto mb-3" />
-          <h1 className="text-3xl font-bold text-indigo-600">CorpMarketer</h1>
-          <p className="text-gray-500 mt-1">Event Lead-Tracking Platform</p>
+          <h1 className="text-3xl font-bold text-indigo-600">FunnelFlow</h1>
+          <p className="text-gray-500 mt-1">Sales Funnel Platform</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-8">

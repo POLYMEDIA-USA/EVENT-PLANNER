@@ -146,7 +146,7 @@ export async function POST(request) {
       });
 
       const fromAddress = settings.smtp_from || settings.smtp_user;
-      const companyName = settings.company_name || 'CorpMarketer';
+      const companyName = settings.company_name || 'FunnelFlow';
       let sentCount = 0;
 
       for (const repId of rep_ids) {
@@ -207,7 +207,7 @@ export async function POST(request) {
     </thead>
     <tbody>${attendeeRows}</tbody>
   </table>
-  <p style="color:#9CA3AF;font-size:12px;margin-top:32px;">Sent by ${companyName} via CorpMarketer</p>
+  <p style="color:#9CA3AF;font-size:12px;margin-top:32px;">Sent by ${companyName} via FunnelFlow</p>
 </body></html>`;
 
         try {

@@ -1,4 +1,4 @@
-# EVENT PLANNER (CorpMarketer) — Deployment Instructions
+# EVENT PLANNER (FunnelFlow) — Deployment Instructions
 
 ## Production Details
 

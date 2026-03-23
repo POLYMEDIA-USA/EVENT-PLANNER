@@ -39,11 +39,11 @@ export async function GET(request) {
     const ics = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//CorpMarketer//Event//EN',
+      'PRODID:-//FunnelFlow//Event//EN',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       'BEGIN:VEVENT',
-      `UID:${event.id}@corpmarketer`,
+      `UID:${event.id}@funnelflow`,
       `DTSTAMP:${dtStamp}`,
       `DTSTART:${dtStart}`,
       `DTEND:${dtEnd}`,

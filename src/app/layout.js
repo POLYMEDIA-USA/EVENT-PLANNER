@@ -2,7 +2,7 @@ import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 
 export const metadata = {
-  title: 'CorpMarketer',
+  title: 'FunnelFlow',
   description: 'Corporate event lead-tracking and engagement platform',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover',
 };

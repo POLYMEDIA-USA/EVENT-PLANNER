@@ -17,7 +17,7 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
   const rsvpDeclineUrl = `${baseUrl}/rsvp?token=${customer.rsvp_token}&action=decline`;
   const logoUrl = settings.company_logo_url || '';
   const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${settings.company_name || 'Logo'}" style="max-height:60px;margin-bottom:16px;" />` : '';
-  const companyName = settings.company_name || 'CorpMarketer';
+  const companyName = settings.company_name || 'FunnelFlow';
 
   const eventBlock = `
     <div style="background:#F3F4F6;border-radius:8px;padding:16px;margin:16px 0;">
@@ -33,7 +33,7 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
       <a href="${rsvpDeclineUrl}" style="display:inline-block;padding:12px 32px;background:#DC2626;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">Decline</a>
     </div>`;
 
-  const footer = `<p style="color:#9CA3AF;font-size:12px;margin-top:32px;">Sent by ${companyName} via CorpMarketer</p>`;
+  const footer = `<p style="color:#9CA3AF;font-size:12px;margin-top:32px;">Sent by ${companyName} via FunnelFlow</p>`;
 
   let subject = '';
   let body = '';
@@ -191,7 +191,7 @@ export async function POST(request) {
       let emailStatus = 'sent';
       try {
         await transporter.sendMail({
-          from: `"${settings.company_name || 'CorpMarketer'}" <${fromAddress}>`,
+          from: `"${settings.company_name || 'FunnelFlow'}" <${fromAddress}>`,
           to: customer.email,
           subject,
           html: trackedHtml,

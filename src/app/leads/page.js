@@ -457,7 +457,7 @@ export default function LeadsPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-2 py-2 text-left">
                     <input
                       type="checkbox"
                       checked={filtered.length > 0 && selectedIds.size === filtered.length}
@@ -465,27 +465,25 @@ export default function LeadsPage() {
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Title</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Organization</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Phone</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Score</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Source</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Input By</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Assigned Rep</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Name</th>
+                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Organization</th>
+                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Email</th>
+                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Score</th>
+                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Source</th>
+                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Input By</th>
+                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Assigned Rep</th>
+                  <th className="text-right px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-400">No leads yet. Click &quot;Add Lead&quot; to get started.</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">No leads yet. Click &quot;Add Lead&quot; to get started.</td></tr>
                 ) : filtered.map(c => (
                   <tr key={c.id} className={`border-b border-gray-100 hover:bg-gray-50 ${selectedIds.has(c.id) ? 'bg-indigo-50' : ''}`}>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-2">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(c.id)}
@@ -493,8 +491,9 @@ export default function LeadsPage() {
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-2">
                       <div className="text-sm font-medium text-gray-800">{c.full_name}</div>
+                      {c.title && <div className="text-xs text-gray-400">{c.title}</div>}
                       {c.notes && (
                         <button onClick={() => toggleNotes(c.id)} className="text-xs text-indigo-500 hover:text-indigo-700 mt-0.5">
                           {expandedNotes[c.id] ? 'Hide notes' : 'Show notes'}
@@ -504,11 +503,12 @@ export default function LeadsPage() {
                         <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap bg-gray-50 p-2 rounded">{c.notes}</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{c.title}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{c.company_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{c.email}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{c.phone}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-2 text-sm text-gray-600">{c.company_name}</td>
+                    <td className="px-2 py-2 text-sm text-gray-600">
+                      <div>{c.email}</div>
+                      {c.phone && <div className="text-xs text-gray-400">{c.phone}</div>}
+                    </td>
+                    <td className="px-2 py-2">
                       <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
                         { possible: 'bg-blue-100 text-blue-700', invited: 'bg-amber-100 text-amber-700',
                           accepted: 'bg-green-100 text-green-700', declined: 'bg-red-100 text-red-700',
@@ -517,7 +517,7 @@ export default function LeadsPage() {
                         {c.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-2">
                       <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-bold ${
                         c.lead_score_label === 'hot' ? 'bg-red-100 text-red-700' :
                         c.lead_score_label === 'warm' ? 'bg-amber-100 text-amber-700' :
@@ -526,18 +526,18 @@ export default function LeadsPage() {
                         {c.lead_score || 0} {c.lead_score_label || 'cold'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{sourceLabel(c.source)}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
+                    <td className="px-2 py-2 text-xs text-gray-500">{sourceLabel(c.source)}</td>
+                    <td className="px-2 py-2 text-xs text-gray-500">
                       <div>{c.input_by || c.added_by_name || '-'}</div>
                       {c.input_by_org && <div className="text-gray-400">{c.input_by_org}</div>}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
+                    <td className="px-2 py-2 text-xs text-gray-500">
                       <div>{c.assigned_rep_name || '-'}</div>
                       {c.assigned_rep_org && <div className="text-gray-400">{c.assigned_rep_org}</div>}
                     </td>
-                    <td className="px-4 py-3 text-right space-x-2">
+                    <td className="px-2 py-2 text-right space-x-1">
                       <button onClick={() => handleEdit(c)} className="text-xs text-indigo-600 hover:text-indigo-800">Edit</button>
-                      <button onClick={() => handleDelete(c.id)} className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                      <button onClick={() => handleDelete(c.id)} className="text-xs text-red-500 hover:text-red-700">Del</button>
                     </td>
                   </tr>
                 ))}
