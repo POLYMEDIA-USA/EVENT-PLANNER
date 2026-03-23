@@ -13,6 +13,10 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailForm, setEmailForm] = useState({ subject: '', message: '' });
+  const [emailLoading, setEmailLoading] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -70,7 +74,59 @@ export default function UsersPage() {
     setError('');
   };
 
+  const handleSelectUser = (userId) => {
+    setSelectedUsers(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedUsers.length === filtered.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(filtered.map(u => u.id));
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (selectedUsers.length === 0) {
+      alert('Please select at least one user');
+      return;
+    }
+    if (!emailForm.subject || !emailForm.message) {
+      alert('Subject and message are required');
+      return;
+    }
+
+    setEmailLoading(true);
+    try {
+      const res = await fetch('/api/email/send-users', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          user_ids: selectedUsers,
+          subject: emailForm.subject,
+          message: emailForm.message,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+        setShowEmailModal(false);
+        setEmailForm({ subject: '', message: '' });
+        setSelectedUsers([]);
+      } else {
+        alert(data.error || 'Failed to send emails');
+      }
+    } catch (error) {
+      alert('Error sending emails');
+    }
+    setEmailLoading(false);
+  };
+
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+  const setEmail = (field) => (e) => setEmailForm({ ...emailForm, [field]: e.target.value });
 
   const filtered = users.filter(u =>
     !search || [u.full_name, u.email, u.organization_name, u.role].some(f => f?.toLowerCase().includes(search.toLowerCase()))
@@ -85,12 +141,22 @@ export default function UsersPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <button
-            onClick={() => { resetForm(); setShowForm(!showForm); }}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
-          >
-            {showForm ? 'Cancel' : 'Add User'}
-          </button>
+          <div className="flex gap-2">
+            {selectedUsers.length > 0 && (
+              <button
+                onClick={() => setShowEmailModal(true)}
+                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
+              >
+                Send Email ({selectedUsers.length})
+              </button>
+            )}
+            <button
+              onClick={() => { resetForm(); setShowForm(!showForm); }}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+            >
+              {showForm ? 'Cancel' : 'Add User'}
+            </button>
+          </div>
         </div>
 
         {showForm && (
@@ -158,13 +224,26 @@ export default function UsersPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
             />
-            <span className="text-sm text-gray-400 ml-4">{filtered.length} user{filtered.length !== 1 ? 's' : ''}</span>
+            <div className="flex items-center gap-2">
+              <button onClick={handleSelectAll} className="text-sm text-indigo-600 hover:text-indigo-800">
+                {selectedUsers.length === filtered.length && filtered.length > 0 ? 'Deselect All' : 'Select All'}
+              </button>
+              <span className="text-sm text-gray-400 ml-4">{filtered.length} user{filtered.length !== 1 ? 's' : ''}</span>
+            </div>
           </div>
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.length === filtered.length && filtered.length > 0}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Phone</th>
@@ -181,6 +260,14 @@ export default function UsersPage() {
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No users found</td></tr>
                 ) : filtered.map(u => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(u.id)}
+                        onChange={() => handleSelectUser(u.id)}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{u.full_name}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{u.phone || '-'}</td>
@@ -216,7 +303,15 @@ export default function UsersPage() {
                 {filtered.map(u => (
                   <div key={u.id} className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{u.full_name}</p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(u.id)}
+                          onChange={() => handleSelectUser(u.id)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <p className="text-sm font-semibold text-gray-900 truncate">{u.full_name}</p>
+                      </div>
                       <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ml-2 ${
                         u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : u.role === 'supervisor' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
                       }`}>
@@ -241,6 +336,67 @@ export default function UsersPage() {
             )}
           </div>
         </div>
+
+        {showEmailModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Send Email to Users</h2>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600">
+                    Sending to {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''}:
+                  </p>
+                  <div className="mt-2 max-h-32 overflow-y-auto">
+                    {selectedUsers.map(id => {
+                      const u = users.find(user => user.id === id);
+                      return u ? (
+                        <div key={id} className="text-xs text-gray-500">{u.full_name} ({u.email})</div>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+                <form className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
+                    <input
+                      type="text"
+                      value={emailForm.subject}
+                      onChange={setEmail('subject')}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+                    <textarea
+                      value={emailForm.message}
+                      onChange={setEmail('message')}
+                      required
+                      rows={6}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                      placeholder="Enter your message here..."
+                    />
+                  </div>
+                </form>
+                <div className="flex gap-2 mt-6">
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={emailLoading}
+                    className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {emailLoading ? 'Sending...' : 'Send Email'}
+                  </button>
+                  <button
+                    onClick={() => { setShowEmailModal(false); setEmailForm({ subject: '', message: '' }); }}
+                    className="px-4 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

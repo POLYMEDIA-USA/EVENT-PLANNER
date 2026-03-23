@@ -35,6 +35,31 @@ async function writeJSON(filename, data) {
   }
 }
 
+async function listFiles() {
+  try {
+    const bucket = storage.bucket(BUCKET_NAME);
+    const [files] = await bucket.getFiles();
+    return files.map(file => file.name);
+  } catch (err) {
+    console.error('Error listing files:', err);
+    return [];
+  }
+}
+
+async function readText(filename) {
+  try {
+    const bucket = storage.bucket(BUCKET_NAME);
+    const file = bucket.file(filename);
+    const [exists] = await file.exists();
+    if (!exists) return null;
+    const [content] = await file.download();
+    return content.toString();
+  } catch (err) {
+    console.error(`Error reading ${filename}:`, err);
+    return null;
+  }
+}
+
 export async function getOrganizations() { return readJSON('organizations.json'); }
 export async function saveOrganizations(data) { return writeJSON('organizations.json', data); }
 
@@ -58,3 +83,5 @@ export async function saveSettings(data) { return writeJSON('settings.json', dat
 
 export async function getEmailLogs() { return readJSON('email_logs.json'); }
 export async function saveEmailLogs(data) { return writeJSON('email_logs.json', data); }
+
+export { readJSON, writeJSON, listFiles, readText };

@@ -44,7 +44,7 @@ export async function POST(request) {
     const user = await authenticate(request);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { full_name, title, company_name, email, phone, alt_email, event_id } = await request.json();
+    const { full_name, title, company_name, email, phone, alt_email, event_id, assigned_rep_id, assigned_rep_name, assigned_rep_org } = await request.json();
     if (!full_name || !email) {
       return Response.json({ error: 'Name and email are required' }, { status: 400 });
     }
@@ -58,8 +58,13 @@ export async function POST(request) {
       email: email.toLowerCase(),
       phone: phone || '',
       alt_email: alt_email || '',
+      input_by: user.full_name,
+      input_by_org: user.organization_name,
       added_by_user_id: user.id,
       added_by_name: user.full_name,
+      assigned_rep_id: assigned_rep_id || '',
+      assigned_rep_name: assigned_rep_name || '',
+      assigned_rep_org: assigned_rep_org || '',
       organization_id: user.organization_id,
       organization_name: user.organization_name,
       status: 'possible',
@@ -100,7 +105,7 @@ export async function PUT(request) {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { added_by_user_id, added_by_name, organization_id, organization_name, ...safeUpdates } = updates;
+    const { added_by_user_id, added_by_name, organization_id, organization_name, input_by, input_by_org, ...safeUpdates } = updates;
     customers[idx] = { ...customers[idx], ...safeUpdates, updated_at: new Date().toISOString() };
     await saveCustomers(customers);
 

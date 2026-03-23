@@ -386,10 +386,31 @@
       </ol>
       <h3>Managing Leads</h3>
       <ul style="padding-left:20px;color:#475569;font-size:.95rem;">
-        <li><strong>Search</strong> — Filter by name, email, company, or phone</li>
-        <li><strong>Edit</strong> — Update lead details</li>
+        <li><strong>Search</strong> — Filter by name, email, company, phone, input by, or assigned rep</li>
+        <li><strong>Edit</strong> — Update lead details including assigned rep</li>
         <li><strong>Delete</strong> — Remove a lead permanently</li>
       </ul>
+
+      <h3>Input By &amp; Assigned Rep (v0.3.0)</h3>
+      <p>Every lead tracks two key fields:</p>
+      <ul class="field-list">
+        <li><span class="field-name">Input By</span><span class="field-desc">Auto-populated with the name and organization of the user who created the lead. Cannot be changed after creation.</span></li>
+        <li><span class="field-name">Assigned Rep</span><span class="field-desc">A dropdown picker showing all registered users (any role). Select the sales rep responsible for this lead. Editable at any time.</span></li>
+      </ul>
+
+      <h3>Bulk Import from File (v0.3.0)</h3>
+      <ol class="steps">
+        <li>Click <strong>"Import from File"</strong> on the Leads page.</li>
+        <li>Upload a <strong>CSV</strong> or <strong>XLSX</strong> file.</li>
+        <li>Map file columns to lead fields. <strong>Full Name</strong> supports combining multiple columns (e.g., "First Name" + "Last Name").</li>
+        <li>Select an <strong>Event</strong> to assign all imported leads to (required).</li>
+        <li>Review, filter, and deselect rows as needed.</li>
+        <li>Click <strong>"Import"</strong>. All imported leads are assigned status <strong>"possible"</strong> and the Input By field records the importing user.</li>
+      </ol>
+      <div class="callout tip">
+        <span class="callout-icon">📁</span>
+        <div><strong>Multi-column name mapping:</strong> If your file has separate "First Name" and "Last Name" columns, add both to the Full Name mapping. They'll be joined with a space. A live preview shows the combined result.</div>
+      </div>
     </div>
   </div>
 
@@ -651,7 +672,7 @@
 </div>
 
 <footer>
-  <p>CorpMarketer v0.2.0 &nbsp;·&nbsp; Powered by VerifyAI &nbsp;·&nbsp; &copy; Polymedia</p>
+  <p>CorpMarketer v0.3.0 &nbsp;·&nbsp; Powered by VerifyAI &nbsp;·&nbsp; &copy; Polymedia</p>
 </footer>
 
 </body>

@@ -3,20 +3,23 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
+import FileImportWizard from '@/components/FileImportWizard';
 
 export default function LeadsPage() {
   const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
-  const [form, setForm] = useState({ full_name: '', title: '', company_name: '', email: '', phone: '', alt_email: '' });
+  const [form, setForm] = useState({ full_name: '', title: '', company_name: '', email: '', phone: '', alt_email: '', assigned_rep_id: '' });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showImportWizard, setShowImportWizard] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
-  useEffect(() => { fetchLeads(); }, []);
+  useEffect(() => { fetchLeads(); fetchUsers(); }, []);
 
   const fetchLeads = async () => {
     try {
@@ -31,17 +34,35 @@ export default function LeadsPage() {
     setLoading(false);
   };
 
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/settings/users', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setAllUsers(data.users || []);
+      }
+    } catch (err) { console.error(err); }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
 
+    // Build assigned rep display fields from selected user
+    const repUser = allUsers.find(u => u.id === form.assigned_rep_id);
+    const submitData = {
+      ...form,
+      assigned_rep_name: repUser ? repUser.full_name : '',
+      assigned_rep_org: repUser ? repUser.organization_name : '',
+    };
+
     if (editingLead) {
       const res = await fetch('/api/leads', {
-        method: 'PUT', headers, body: JSON.stringify({ id: editingLead.id, ...form }),
+        method: 'PUT', headers, body: JSON.stringify({ id: editingLead.id, ...submitData }),
       });
       if (res.ok) { resetForm(); fetchLeads(); }
     } else {
-      const body = { ...form };
+      const body = { ...submitData };
       if (event) body.event_id = event.id;
       const res = await fetch('/api/leads', { method: 'POST', headers, body: JSON.stringify(body) });
       if (res.ok) { resetForm(); fetchLeads(); }
@@ -53,6 +74,7 @@ export default function LeadsPage() {
     setForm({
       full_name: lead.full_name, title: lead.title, company_name: lead.company_name,
       email: lead.email, phone: lead.phone, alt_email: lead.alt_email,
+      assigned_rep_id: lead.assigned_rep_id || '',
     });
     setShowForm(true);
   };
@@ -64,7 +86,7 @@ export default function LeadsPage() {
   };
 
   const resetForm = () => {
-    setForm({ full_name: '', title: '', company_name: '', email: '', phone: '', alt_email: '' });
+    setForm({ full_name: '', title: '', company_name: '', email: '', phone: '', alt_email: '', assigned_rep_id: '' });
     setEditingLead(null);
     setShowForm(false);
   };
@@ -72,25 +94,33 @@ export default function LeadsPage() {
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
   const filtered = customers.filter(c =>
-    !search || [c.full_name, c.company_name, c.email].some(f => f?.toLowerCase().includes(search.toLowerCase()))
+    !search || [c.full_name, c.company_name, c.email, c.input_by, c.assigned_rep_name].some(f => f?.toLowerCase().includes(search.toLowerCase()))
   );
 
   const event = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('cm_event') || 'null') : null;
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
             {event && <p className="text-sm text-gray-500">Event: {event.name}</p>}
           </div>
-          <button
-            onClick={() => { resetForm(); setShowForm(!showForm); }}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
-          >
-            {showForm ? 'Cancel' : 'Add Lead'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowImportWizard(true)}
+              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
+            >
+              Import from File
+            </button>
+            <button
+              onClick={() => { resetForm(); setShowForm(!showForm); }}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+            >
+              {showForm ? 'Cancel' : 'Add Lead'}
+            </button>
+          </div>
         </div>
 
         {!event && (
@@ -133,6 +163,16 @@ export default function LeadsPage() {
                 <input type="email" value={form.alt_email} onChange={set('alt_email')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Rep</label>
+                <select value={form.assigned_rep_id} onChange={set('assigned_rep_id')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                  <option value="">-- Select Rep --</option>
+                  {allUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.full_name} ({u.organization_name})</option>
+                  ))}
+                </select>
+              </div>
               <div className="md:col-span-2 flex gap-2">
                 <button type="submit" className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
                   {editingLead ? 'Update' : 'Add'} Lead
@@ -166,15 +206,16 @@ export default function LeadsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Phone</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Added By</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Input By</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Assigned Rep</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No leads yet. Click &quot;Add Lead&quot; to get started.</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">No leads yet. Click &quot;Add Lead&quot; to get started.</td></tr>
                 ) : filtered.map(c => (
                   <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.full_name}</td>
@@ -191,7 +232,14 @@ export default function LeadsPage() {
                         {c.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{c.added_by_name}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      <div>{c.input_by || c.added_by_name || '-'}</div>
+                      {c.input_by_org && <div className="text-gray-400">{c.input_by_org}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      <div>{c.assigned_rep_name || '-'}</div>
+                      {c.assigned_rep_org && <div className="text-gray-400">{c.assigned_rep_org}</div>}
+                    </td>
                     <td className="px-4 py-3 text-right space-x-2">
                       <button onClick={() => handleEdit(c)} className="text-xs text-indigo-600 hover:text-indigo-800">Edit</button>
                       <button onClick={() => handleDelete(c.id)} className="text-xs text-red-500 hover:text-red-700">Delete</button>
@@ -230,7 +278,8 @@ export default function LeadsPage() {
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                       {c.email && <div className="col-span-2"><dt className="text-gray-400 inline">Email:</dt> <dd className="text-gray-700 inline truncate">{c.email}</dd></div>}
                       {c.phone && <div><dt className="text-gray-400 inline">Phone:</dt> <dd className="text-gray-700 inline">{c.phone}</dd></div>}
-                      {c.added_by_name && <div><dt className="text-gray-400 inline">Added by:</dt> <dd className="text-gray-700 inline">{c.added_by_name}</dd></div>}
+                      <div><dt className="text-gray-400 inline">Input By:</dt> <dd className="text-gray-700 inline">{c.input_by || c.added_by_name || '-'}</dd></div>
+                      <div><dt className="text-gray-400 inline">Rep:</dt> <dd className="text-gray-700 inline">{c.assigned_rep_name || '-'}</dd></div>
                     </dl>
                     <div className="flex gap-4 pt-1">
                       <button onClick={() => handleEdit(c)} className="text-xs text-indigo-600 font-medium">Edit</button>
@@ -242,6 +291,12 @@ export default function LeadsPage() {
             )}
           </div>
         </div>
+
+        <FileImportWizard
+          isOpen={showImportWizard}
+          onClose={() => setShowImportWizard(false)}
+          onImport={fetchLeads}
+        />
       </div>
     </AppShell>
   );

@@ -19,3 +19,10 @@ export function generateToken() {
 export function generateRSVPToken() {
   return crypto.randomBytes(16).toString('base64url');
 }
+
+export async function verifyToken(token) {
+  if (!token) return null;
+  const { getUsers } = await import('./gcs');
+  const users = await getUsers();
+  return users.find(u => u.session_token === token) || null;
+}
