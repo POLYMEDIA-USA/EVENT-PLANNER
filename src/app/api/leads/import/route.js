@@ -98,6 +98,8 @@ export async function POST(request) {
           organization_id: user.organization_id,
           added_by_user_id: user.id,
           added_by_name: user.full_name,
+          notes: '',
+          source: 'file_import',
           created_at: new Date().toISOString(),
         };
 

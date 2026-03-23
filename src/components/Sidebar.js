@@ -10,10 +10,13 @@ const adminLinks = [
   { href: '/leads', label: 'Leads', icon: '◉' },
   { href: '/invited', label: 'Invited', icon: '✉' },
   { href: '/scanner', label: 'QR Scanner', icon: '⊞' },
+  { href: '/checkin-dashboard', label: 'Check-In Live', icon: '⚡' },
   { href: '/interactions', label: 'Interactions', icon: '◎' },
+  { href: '/tasks', label: 'Tasks', icon: '☐' },
   { href: '/reports', label: 'Reports', icon: '▤' },
   { href: '/users', label: 'Users', icon: '◆' },
   { href: '/settings', label: 'Settings', icon: '⚙' },
+  { href: '/audit', label: 'Audit Log', icon: '⊘' },
 ];
 
 const supervisorLinks = [
@@ -22,7 +25,9 @@ const supervisorLinks = [
   { href: '/leads', label: 'Leads', icon: '◉' },
   { href: '/invited', label: 'Invited', icon: '✉' },
   { href: '/scanner', label: 'QR Scanner', icon: '⊞' },
+  { href: '/checkin-dashboard', label: 'Check-In Live', icon: '⚡' },
   { href: '/interactions', label: 'Interactions', icon: '◎' },
+  { href: '/tasks', label: 'Tasks', icon: '☐' },
   { href: '/reports', label: 'Reports', icon: '▤' },
 ];
 
@@ -31,6 +36,7 @@ const repLinks = [
   { href: '/leads', label: 'Leads', icon: '◉' },
   { href: '/scanner', label: 'QR Scanner', icon: '⊞' },
   { href: '/interactions', label: 'My Interactions', icon: '◎' },
+  { href: '/tasks', label: 'My Tasks', icon: '☐' },
 ];
 
 const guideUrl = (role) =>

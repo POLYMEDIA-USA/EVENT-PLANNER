@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { getCustomers, saveCustomers, getInteractions, saveInteractions } from '@/lib/gcs';
+import { getCustomers, saveCustomers, getInteractions, saveInteractions, getEventAssignments } from '@/lib/gcs';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request) {
@@ -50,10 +50,16 @@ export async function GET(request) {
     });
     await saveInteractions(interactions);
 
+    // Look up event_id for this customer
+    const assignments = await getEventAssignments();
+    const assignment = assignments.find(a => a.customer_id === customer.id);
+    const event_id = assignment ? assignment.event_id : null;
+
     return Response.json({
       status: action === 'accept' ? 'accepted' : 'declined',
       customer_name: customer.full_name,
       qr_code_data: action === 'accept' ? customers[idx].qr_code_data : null,
+      event_id,
     });
   } catch (err) {
     console.error('RSVP error:', err);

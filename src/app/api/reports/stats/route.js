@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { getUsers, getEvents, getCustomers, getInteractions } from '@/lib/gcs';
+import { getUsers, getEvents, getCustomers, getInteractions, getEmailLogs } from '@/lib/gcs';
 
 export async function GET(request) {
   try {
@@ -11,10 +11,11 @@ export async function GET(request) {
     const user = users.find(u => u.session_token === token);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const [events, customers, interactions] = await Promise.all([
+    const [events, customers, interactions, emailLogs] = await Promise.all([
       getEvents(),
       getCustomers(),
       getInteractions(),
+      getEmailLogs(),
     ]);
 
     // Scope data by org for non-admins
@@ -22,14 +23,37 @@ export async function GET(request) {
       ? customers
       : customers.filter(c => c.organization_id === user.organization_id);
 
+    const possible = scopedCustomers.filter(c => c.status === 'possible').length;
+    const invited = scopedCustomers.filter(c => c.status === 'invited').length;
+    const accepted = scopedCustomers.filter(c => c.status === 'accepted').length;
+    const declined = scopedCustomers.filter(c => c.status === 'declined').length;
+    const attended = scopedCustomers.filter(c => c.status === 'attended').length;
+    const total = scopedCustomers.length;
+
+    // Lead score distribution
+    const scoreDistribution = { hot: 0, warm: 0, cold: 0 };
+    for (const c of scopedCustomers) {
+      let score = 0;
+      score += Math.min(interactions.filter(i => i.customer_id === c.id).length * 5, 25);
+      score += Math.min(emailLogs.filter(e => e.to === c.email && e.status === 'sent').length * 5, 15);
+      if (c.status === 'accepted') score += 20;
+      if (c.status === 'attended') score += 30;
+      if (c.assigned_rep_id) score += 5;
+      if (score >= 50) scoreDistribution.hot++;
+      else if (score >= 20) scoreDistribution.warm++;
+      else scoreDistribution.cold++;
+    }
+
     return Response.json({
       events: events.filter(e => e.status === 'active').length,
-      leads: scopedCustomers.filter(c => c.status === 'possible').length,
-      invited: scopedCustomers.filter(c => c.status === 'invited' || c.status === 'accepted').length,
-      attended: scopedCustomers.filter(c => c.status === 'attended').length,
+      leads: possible,
+      invited: invited + accepted,
+      attended,
       total_interactions: user.role === 'admin'
         ? interactions.length
         : interactions.filter(i => i.sales_rep_id === user.id).length,
+      pipeline: { possible, invited, accepted, declined, attended, total },
+      scoreDistribution,
     });
   } catch (err) {
     console.error('Stats error:', err);

@@ -65,6 +65,10 @@ export async function POST(request) {
     users.push(user);
     await saveUsers(users);
 
+    // Audit log
+    const { logAudit } = await import('@/lib/audit');
+    await logAudit({ user_id: admin.id, user_name: admin.full_name, action: 'user_created', entity_type: 'user', entity_id: user.id, details: `Created user "${user.full_name}" (${user.email}) with role ${user.role}` });
+
     const { password_hash, session_token, ...safeUser } = user;
     return Response.json({ user: safeUser });
   } catch (err) {
@@ -116,6 +120,10 @@ export async function PUT(request) {
     users[idx].updated_at = new Date().toISOString();
     await saveUsers(users);
 
+    // Audit log
+    const { logAudit } = await import('@/lib/audit');
+    await logAudit({ user_id: admin.id, user_name: admin.full_name, action: 'user_updated', entity_type: 'user', entity_id: user_id, details: `Updated user "${users[idx].full_name}" (${users[idx].email})` });
+
     const { password_hash, session_token, ...safeUser } = users[idx];
     return Response.json({ user: safeUser });
   } catch (err) {
@@ -142,6 +150,10 @@ export async function DELETE(request) {
 
     users = users.filter(u => u.id !== user_id);
     await saveUsers(users);
+
+    // Audit log
+    const { logAudit } = await import('@/lib/audit');
+    await logAudit({ user_id: admin.id, user_name: admin.full_name, action: 'user_deleted', entity_type: 'user', entity_id: user_id, details: `Deleted user "${target.full_name}" (${target.email})` });
 
     return Response.json({ success: true });
   } catch (err) {

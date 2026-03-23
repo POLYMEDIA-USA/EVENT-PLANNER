@@ -182,13 +182,19 @@ export async function POST(request) {
 
       const { subject, html } = buildEmailHTML(email_type, customer, activeEvent, settings, baseUrl, custom_message);
 
+      // Build log entry ID early so we can use it in the tracking pixel
+      const logEntryId = uuidv4();
+      const appUrl = settings.app_url || baseUrl;
+      const trackingPixel = `<img src="${appUrl}/api/email/track?type=open&id=${logEntryId}" width="1" height="1" style="display:none" />`;
+      const trackedHtml = html.replace('</body>', `${trackingPixel}</body>`);
+
       let emailStatus = 'sent';
       try {
         await transporter.sendMail({
           from: `"${settings.company_name || 'CorpMarketer'}" <${fromAddress}>`,
           to: customer.email,
           subject,
-          html,
+          html: trackedHtml,
         });
         sent++;
       } catch (err) {
@@ -199,7 +205,7 @@ export async function POST(request) {
       }
 
       emailLogs.push({
-        id: uuidv4(),
+        id: logEntryId,
         direction: 'outbound',
         type: email_type,
         from: fromAddress,

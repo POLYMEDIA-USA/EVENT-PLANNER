@@ -84,4 +84,13 @@ export async function saveSettings(data) { return writeJSON('settings.json', dat
 export async function getEmailLogs() { return readJSON('email_logs.json'); }
 export async function saveEmailLogs(data) { return writeJSON('email_logs.json', data); }
 
+export async function getTasks() { return readJSON('tasks.json'); }
+export async function saveTasks(data) { return writeJSON('tasks.json', data); }
+
+export async function getAuditLog() { return readJSON('audit_log.json'); }
+export async function saveAuditLog(data) { return writeJSON('audit_log.json', data); }
+
+export async function getEmailTemplates() { return readJSON('email_templates.json'); }
+export async function saveEmailTemplates(data) { return writeJSON('email_templates.json', data); }
+
 export { readJSON, writeJSON, listFiles, readText };

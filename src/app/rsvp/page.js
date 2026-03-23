@@ -76,6 +76,16 @@ function RSVPContent() {
                 </div>
               </div>
             )}
+            {result.event_id && (
+              <div className="mt-4">
+                <a
+                  href={`/api/events/ical?event_id=${result.event_id}`}
+                  className="inline-block px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                >
+                  &#128197; Add to Calendar
+                </a>
+              </div>
+            )}
           </>
         ) : (
           <>

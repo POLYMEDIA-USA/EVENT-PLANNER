@@ -128,7 +128,7 @@ export default function EventsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Time</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Location</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  {isAdmin && <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>}
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,12 +152,15 @@ export default function EventsPage() {
                         {ev.status || 'active'}
                       </span>
                     </td>
-                    {isAdmin && (
-                      <td className="px-4 py-3 text-right space-x-2">
-                        <button onClick={() => handleEdit(ev)} className="text-xs text-indigo-600 hover:text-indigo-800">Edit</button>
-                        <button onClick={() => handleDelete(ev.id)} className="text-xs text-red-500 hover:text-red-700">Delete</button>
-                      </td>
-                    )}
+                    <td className="px-4 py-3 text-right space-x-2">
+                      <a href={`/api/events/ical?event_id=${ev.id}`} title="Add to Calendar" className="text-xs text-gray-500 hover:text-indigo-600">&#128197;</a>
+                      {isAdmin && (
+                        <>
+                          <button onClick={() => handleEdit(ev)} className="text-xs text-indigo-600 hover:text-indigo-800">Edit</button>
+                          <button onClick={() => handleDelete(ev.id)} className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                        </>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -188,12 +191,15 @@ export default function EventsPage() {
                       <div><dt className="text-gray-400 inline">Time:</dt> <dd className="text-gray-700 inline">{ev.event_time}</dd></div>
                       {ev.location && <div className="col-span-2"><dt className="text-gray-400 inline">Location:</dt> <dd className="text-gray-700 inline">{ev.location}</dd></div>}
                     </dl>
-                    {isAdmin && (
-                      <div className="flex gap-4 pt-1">
-                        <button onClick={() => handleEdit(ev)} className="text-xs text-indigo-600 font-medium">Edit</button>
-                        <button onClick={() => handleDelete(ev.id)} className="text-xs text-red-500 font-medium">Delete</button>
-                      </div>
-                    )}
+                    <div className="flex gap-4 pt-1">
+                      <a href={`/api/events/ical?event_id=${ev.id}`} className="text-xs text-gray-500 hover:text-indigo-600 font-medium">&#128197; Calendar</a>
+                      {isAdmin && (
+                        <>
+                          <button onClick={() => handleEdit(ev)} className="text-xs text-indigo-600 font-medium">Edit</button>
+                          <button onClick={() => handleDelete(ev.id)} className="text-xs text-red-500 font-medium">Delete</button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
