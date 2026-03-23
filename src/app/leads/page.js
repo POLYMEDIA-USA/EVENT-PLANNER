@@ -473,15 +473,16 @@ export default function LeadsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Score</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Source</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Input By</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Assigned Rep</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                  <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">No leads yet. Click &quot;Add Lead&quot; to get started.</td></tr>
+                  <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-400">No leads yet. Click &quot;Add Lead&quot; to get started.</td></tr>
                 ) : filtered.map(c => (
                   <tr key={c.id} className={`border-b border-gray-100 hover:bg-gray-50 ${selectedIds.has(c.id) ? 'bg-indigo-50' : ''}`}>
                     <td className="px-4 py-3">
@@ -526,6 +527,10 @@ export default function LeadsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{sourceLabel(c.source)}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      <div>{c.input_by || c.added_by_name || '-'}</div>
+                      {c.input_by_org && <div className="text-gray-400">{c.input_by_org}</div>}
+                    </td>
                     <td className="px-4 py-3 text-xs text-gray-500">
                       <div>{c.assigned_rep_name || '-'}</div>
                       {c.assigned_rep_org && <div className="text-gray-400">{c.assigned_rep_org}</div>}
@@ -590,6 +595,7 @@ export default function LeadsPage() {
                         {c.phone && <div><dt className="text-gray-400 inline">Phone:</dt> <dd className="text-gray-700 inline">{c.phone}</dd></div>}
                         <div><dt className="text-gray-400 inline">Score:</dt> <dd className="inline"><span className={`inline-block px-2 py-0.5 text-xs rounded-full font-bold ${c.lead_score_label === 'hot' ? 'bg-red-100 text-red-700' : c.lead_score_label === 'warm' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{c.lead_score || 0} {c.lead_score_label || 'cold'}</span></dd></div>
                         <div><dt className="text-gray-400 inline">Source:</dt> <dd className="text-gray-700 inline">{sourceLabel(c.source)}</dd></div>
+                        <div><dt className="text-gray-400 inline">Input By:</dt> <dd className="text-gray-700 inline">{c.input_by || c.added_by_name || '-'}</dd></div>
                         <div><dt className="text-gray-400 inline">Rep:</dt> <dd className="text-gray-700 inline">{c.assigned_rep_name || '-'}</dd></div>
                       </dl>
                       {c.notes && (

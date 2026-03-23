@@ -650,10 +650,150 @@
       <tr><td>QR Scanner</td><td>✅</td><td>✅</td><td>✅</td></tr>
       <tr><td>Interactions (all reps)</td><td>✅</td><td>✅</td><td>Own only</td></tr>
       <tr><td>Reports</td><td>✅</td><td>✅</td><td>—</td></tr>
+      <tr><td>Tasks</td><td>✅</td><td>✅</td><td>My Tasks only</td></tr>
+      <tr><td>Check-In Live</td><td>✅</td><td>✅</td><td>—</td></tr>
+      <tr><td>Audit Log</td><td>✅</td><td>—</td><td>—</td></tr>
       <tr><td>Users Management</td><td>✅</td><td>—</td><td>—</td></tr>
       <tr><td>Settings</td><td>✅</td><td>—</td><td>—</td></tr>
     </tbody>
   </table>
+
+  <!-- New Features v0.5.0 -->
+  <h2>New in v0.5.0</h2>
+
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-red">★</div>
+      <div class="title-wrap">
+        <h4>Lead Scoring</h4>
+        <div class="trigger">Automatic hot / warm / cold classification</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>Every lead is automatically scored based on:</p>
+      <ul style="padding-left:20px;color:#475569;font-size:.95rem;">
+        <li>Interaction count (+5 per interaction, max 25)</li>
+        <li>Emails sent (+5 per email, max 15)</li>
+        <li>RSVP accepted (+20 points)</li>
+        <li>Event attended (+30 points)</li>
+        <li>Has assigned rep (+5 points)</li>
+      </ul>
+      <p style="margin-top:12px;"><strong>Labels:</strong> Cold (0-19), Warm (20-49), Hot (50+). Scores appear in the Leads table and on dashboards.</p>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-purple">▤</div>
+      <div class="title-wrap">
+        <h4>Pipeline &amp; Funnel Dashboard</h4>
+        <div class="trigger">Visual conversion rates between stages</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>The Dashboard now shows a visual pipeline funnel: Possible → Invited → Accepted → Declined → Attended, with bar charts and conversion rates between each stage. Also shows Lead Temperature distribution (Hot/Warm/Cold counts).</p>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-teal">☐</div>
+      <div class="title-wrap">
+        <h4>Follow-Up Tasks</h4>
+        <div class="trigger">Assign, track, and manage post-event follow-ups</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>Create tasks for leads with due dates, priorities (low/medium/high), and assignees. Track status (pending/completed/overdue).</p>
+      <ol class="steps">
+        <li>Navigate to <strong>Tasks</strong> in the sidebar.</li>
+        <li>Click <strong>"Add Task"</strong>.</li>
+        <li>Select a <strong>customer</strong>, assign to a <strong>rep</strong>, set <strong>due date</strong> and <strong>priority</strong>.</li>
+        <li>Add a title and description, then save.</li>
+      </ol>
+      <p>Filter by: All, My Tasks, Overdue, or Completed. Overdue tasks are color-coded red.</p>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-green">✆</div>
+      <div class="title-wrap">
+        <h4>SMS Notifications (Vonage)</h4>
+        <div class="trigger">Send SMS messages to leads</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>Send SMS via the Vonage API. Configure in <strong>Settings → SMS (Vonage)</strong> with your API Key, API Secret, and From Number. Admin/Supervisor only.</p>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-blue">◉</div>
+      <div class="title-wrap">
+        <h4>Bulk Actions, Dedup, Source Tracking &amp; Notes</h4>
+        <div class="trigger">Leads page enhancements</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <ul style="padding-left:20px;color:#475569;font-size:.95rem;">
+        <li><strong>Bulk Actions</strong> — Select multiple leads to change status, assign rep, or delete in one action.</li>
+        <li><strong>Find Duplicates</strong> — Detect duplicate leads by email or name+company, then merge with one click.</li>
+        <li><strong>Lead Source</strong> — Track where leads came from: Manual, File Import, Referral, Website, Social Media, Trade Show, Other.</li>
+        <li><strong>Notes</strong> — Add persistent notes to any lead, visible in an expandable row in the table.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-orange">⚡</div>
+      <div class="title-wrap">
+        <h4>Check-In Live Dashboard</h4>
+        <div class="trigger">Real-time event attendance tracking</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <p>During events, use the <strong>Check-In Live</strong> page to see real-time attendance: who's checked in, who's expected but hasn't arrived, and a progress bar. Auto-refreshes every 10 seconds.</p>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-indigo">⊘</div>
+      <div class="title-wrap">
+        <h4>Audit Log, Email Templates, Calendar &amp; User Import</h4>
+        <div class="trigger">Admin tools</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <ul style="padding-left:20px;color:#475569;font-size:.95rem;">
+        <li><strong>Audit Log</strong> (Admin only) — Track who changed leads and users, with timestamps and details.</li>
+        <li><strong>Email Templates</strong> — Create reusable email templates with merge fields ({lead_name}, {event_name}, etc.) in Settings.</li>
+        <li><strong>Calendar (.ics)</strong> — "Add to Calendar" buttons on Events and RSVP pages.</li>
+        <li><strong>Email Open/Click Tracking</strong> — Tracking pixel in outbound emails records opens and clicks.</li>
+        <li><strong>Export/Import Users</strong> — Download users as CSV or bulk-create users from a CSV file.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="action-card-header">
+      <div class="icon icon-amber">⌂</div>
+      <div class="title-wrap">
+        <h4>Role-Based Dashboards</h4>
+        <div class="trigger">Personalized views for each role</div>
+      </div>
+    </div>
+    <div class="action-card-body">
+      <ul style="padding-left:20px;color:#475569;font-size:.95rem;">
+        <li><strong>Admin</strong> — System health (total users, events, tasks), pipeline funnel, lead temperature.</li>
+        <li><strong>Supervisor</strong> — Team pending tasks, team activity, pipeline funnel.</li>
+        <li><strong>Sales Rep</strong> — My Leads count, My Tasks (pending/overdue), My Recent Interactions.</li>
+      </ul>
+    </div>
+  </div>
 
   <!-- Tips -->
   <h2>Tips &amp; Best Practices</h2>
@@ -672,7 +812,7 @@
 </div>
 
 <footer>
-  <p>CorpMarketer v0.3.0 &nbsp;·&nbsp; Powered by VerifyAI &nbsp;·&nbsp; &copy; Polymedia</p>
+  <p>CorpMarketer v0.5.0 &nbsp;·&nbsp; Powered by VerifyAI &nbsp;·&nbsp; &copy; Polymedia</p>
 </footer>
 
 </body>
