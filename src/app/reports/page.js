@@ -25,6 +25,10 @@ export default function ReportsPage() {
   const [selectedAttendee, setSelectedAttendee] = useState(null);
   const [selectedReps, setSelectedReps] = useState(new Set());
   const [postEventSending, setPostEventSending] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
+  const [expandedOrg, setExpandedOrg] = useState(null);
+  const [expandedSup, setExpandedSup] = useState(null);
+  const [expandedRep, setExpandedRep] = useState(null);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -33,14 +37,16 @@ export default function ReportsPage() {
 
   const fetchData = async () => {
     try {
-      const [custRes, intRes, emailRes] = await Promise.all([
+      const [custRes, intRes, emailRes, usersRes] = await Promise.all([
         fetch('/api/leads', { headers }),
         fetch('/api/interactions', { headers }),
         fetch('/api/email/log', { headers }),
+        fetch('/api/reps', { headers }),
       ]);
       if (custRes.ok) setCustomers((await custRes.json()).customers || []);
       if (intRes.ok) setInteractions((await intRes.json()).interactions || []);
       if (emailRes.ok) setEmails((await emailRes.json()).emails || []);
+      if (usersRes.ok) setAllUsers((await usersRes.json()).users || []);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
@@ -136,27 +142,60 @@ export default function ReportsPage() {
     else { setSortBy(col); setSortDir('asc'); }
   };
 
-  // Stats by organization
-  const orgStats = {};
-  customers.forEach(c => {
-    const org = c.organization_name || 'Unknown';
-    if (!orgStats[org]) orgStats[org] = { total: 0, invited: 0, attended: 0, interactions: 0 };
-    orgStats[org].total++;
-    if (['invited', 'accepted'].includes(c.status)) orgStats[org].invited++;
-    if (c.status === 'attended') orgStats[org].attended++;
-  });
-  interactions.forEach(i => {
-    const customer = customers.find(c => c.id === i.customer_id);
-    const org = customer?.organization_name || 'Unknown';
-    if (orgStats[org]) orgStats[org].interactions++;
-  });
+  // Build hierarchical tree: Company → Supervisors → Reps → Leads
+  const buildOrgTree = () => {
+    // Normalize org names for grouping
+    const norm = (n) => (n || '').trim().toLowerCase();
+
+    // Group users by normalized org name
+    const orgMap = {};
+    allUsers.forEach(u => {
+      const key = norm(u.organization_name);
+      const displayName = u.organization_name || 'Unknown';
+      if (!orgMap[key]) orgMap[key] = { name: displayName, supervisors: [], reps: [], users: [] };
+      orgMap[key].users.push(u);
+      if (u.role === 'supervisor') orgMap[key].supervisors.push(u);
+      if (u.role === 'sales_rep') orgMap[key].reps.push(u);
+    });
+
+    // Attach leads to reps and compute stats
+    Object.values(orgMap).forEach(org => {
+      org.stats = { total: 0, approved: 0, invited: 0, attended: 0, interactions: 0 };
+      org.unassignedLeads = [];
+      org.reps.forEach(rep => {
+        rep.leads = customers.filter(c => c.assigned_rep_id === rep.id);
+        rep.interactionCount = interactions.filter(i => rep.leads.some(l => l.id === i.customer_id)).length;
+        rep.leads.forEach(l => {
+          org.stats.total++;
+          if (l.status === 'approved') org.stats.approved++;
+          if (['invited', 'accepted'].includes(l.status)) org.stats.invited++;
+          if (l.status === 'attended') org.stats.attended++;
+        });
+        org.stats.interactions += rep.interactionCount;
+      });
+      // Leads assigned to supervisors or unassigned but in this org
+      const repIds = new Set(org.reps.map(r => r.id));
+      const orgLeads = customers.filter(c => norm(c.organization_name) === norm(org.name) || norm(c.assigned_rep_org) === norm(org.name));
+      org.unassignedLeads = orgLeads.filter(l => !l.assigned_rep_id || (!repIds.has(l.assigned_rep_id) && org.supervisors.some(s => s.id === l.added_by_user_id)));
+      org.unassignedLeads.forEach(l => {
+        org.stats.total++;
+        if (l.status === 'approved') org.stats.approved++;
+        if (['invited', 'accepted'].includes(l.status)) org.stats.invited++;
+        if (l.status === 'attended') org.stats.attended++;
+      });
+    });
+
+    return Object.values(orgMap).sort((a, b) => a.name.localeCompare(b.name));
+  };
+  const orgTree = buildOrgTree();
 
   const filteredEmails = emails.filter(e =>
     !emailFilter || [e.to, e.customer_name, e.subject, e.type].some(f => f?.toLowerCase().includes(emailFilter.toLowerCase()))
   );
 
   const statusColors = {
-    possible: 'bg-blue-100 text-blue-700', invited: 'bg-amber-100 text-amber-700',
+    possible: 'bg-blue-100 text-blue-700', approved: 'bg-teal-100 text-teal-700',
+    invited: 'bg-amber-100 text-amber-700',
     accepted: 'bg-green-100 text-green-700', declined: 'bg-red-100 text-red-700',
     attended: 'bg-purple-100 text-purple-700',
   };
@@ -188,19 +227,158 @@ export default function ReportsPage() {
 
         {tab === 'overview' && (
           <>
-            {/* Org Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {Object.entries(orgStats).map(([org, stats]) => (
-                <div key={org} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                  <h3 className="font-semibold text-gray-800 mb-2">{org}</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div><span className="text-gray-500">Leads:</span> <span className="font-medium">{stats.total}</span></div>
-                    <div><span className="text-gray-500">Invited:</span> <span className="font-medium">{stats.invited}</span></div>
-                    <div><span className="text-gray-500">Attended:</span> <span className="font-medium">{stats.attended}</span></div>
-                    <div><span className="text-gray-500">Interactions:</span> <span className="font-medium">{stats.interactions}</span></div>
+            {/* Hierarchical Org Tree */}
+            <div className="space-y-3 mb-6">
+              {orgTree.map(org => {
+                const isOrgExpanded = expandedOrg === org.name;
+                return (
+                  <div key={org.name} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    {/* Company Level */}
+                    <div className="p-5 cursor-pointer hover:bg-gray-50 flex items-center justify-between"
+                      onClick={() => setExpandedOrg(isOrgExpanded ? null : org.name)}>
+                      <div>
+                        <h3 className="font-semibold text-gray-800 text-lg">{org.name}</h3>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {org.supervisors.length} supervisor{org.supervisors.length !== 1 ? 's' : ''} · {org.reps.length} rep{org.reps.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="grid grid-cols-4 gap-3 text-center">
+                          <div><p className="text-lg font-bold text-gray-800">{org.stats.total}</p><p className="text-[10px] text-gray-400">Leads</p></div>
+                          <div><p className="text-lg font-bold text-teal-600">{org.stats.approved}</p><p className="text-[10px] text-gray-400">Approved</p></div>
+                          <div><p className="text-lg font-bold text-amber-600">{org.stats.invited}</p><p className="text-[10px] text-gray-400">Invited</p></div>
+                          <div><p className="text-lg font-bold text-purple-600">{org.stats.attended}</p><p className="text-[10px] text-gray-400">Attended</p></div>
+                        </div>
+                        <span className="text-gray-400 text-sm">{isOrgExpanded ? '▼' : '▶'}</span>
+                      </div>
+                    </div>
+
+                    {/* Expanded: Supervisors + Reps */}
+                    {isOrgExpanded && (
+                      <div className="border-t border-gray-200">
+                        {/* Supervisors */}
+                        {org.supervisors.map(sup => (
+                          <div key={sup.id} className="border-b border-gray-100">
+                            <div className="px-8 py-3 bg-amber-50 flex items-center justify-between cursor-pointer hover:bg-amber-100"
+                              onClick={() => setExpandedSup(expandedSup === sup.id ? null : sup.id)}>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium bg-amber-100 text-amber-700">Supervisor</span>
+                                <span className="text-sm font-medium text-gray-800">{sup.full_name}</span>
+                                <span className="text-xs text-gray-400">{sup.email}</span>
+                              </div>
+                              <span className="text-xs text-gray-400">{expandedSup === sup.id ? '▼' : '▶'}</span>
+                            </div>
+                            {/* Reps under this supervisor (same org) */}
+                            {expandedSup === sup.id && (
+                              <div className="bg-gray-50">
+                                {org.reps.length === 0 ? (
+                                  <p className="px-12 py-3 text-sm text-gray-400 italic">No sales reps in this organization</p>
+                                ) : org.reps.map(rep => {
+                                  const isRepExpanded = expandedRep === rep.id;
+                                  return (
+                                    <div key={rep.id} className="border-t border-gray-200">
+                                      <div className="px-12 py-2.5 flex items-center justify-between cursor-pointer hover:bg-gray-100"
+                                        onClick={() => setExpandedRep(isRepExpanded ? null : rep.id)}>
+                                        <div className="flex items-center gap-2">
+                                          <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium bg-gray-100 text-gray-600">Rep</span>
+                                          <span className="text-sm text-gray-700">{rep.full_name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          <span className="text-xs text-gray-500">{rep.leads.length} lead{rep.leads.length !== 1 ? 's' : ''} · {rep.interactionCount} interactions</span>
+                                          <span className="text-xs text-gray-400">{isRepExpanded ? '▼' : '▶'}</span>
+                                        </div>
+                                      </div>
+                                      {isRepExpanded && rep.leads.length > 0 && (
+                                        <div className="px-16 py-2 bg-white border-t border-gray-100">
+                                          <table className="w-full">
+                                            <thead>
+                                              <tr>
+                                                <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Lead</th>
+                                                <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Company</th>
+                                                <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Status</th>
+                                                <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Score</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {rep.leads.map(l => (
+                                                <tr key={l.id} className="border-t border-gray-100">
+                                                  <td className="px-2 py-1 text-sm text-gray-700">{l.full_name}</td>
+                                                  <td className="px-2 py-1 text-sm text-gray-500">{l.company_name || '-'}</td>
+                                                  <td className="px-2 py-1">
+                                                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[l.status] || 'bg-gray-100'}`}>{l.status}</span>
+                                                  </td>
+                                                  <td className="px-2 py-1">
+                                                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-bold ${
+                                                      l.lead_score_label === 'hot' ? 'bg-red-100 text-red-700' : l.lead_score_label === 'warm' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                                    }`}>{l.lead_score || 0}</span>
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                                {/* Unassigned leads in this org */}
+                                {org.unassignedLeads.length > 0 && (
+                                  <div className="border-t border-gray-200">
+                                    <div className="px-12 py-2.5 text-sm text-gray-500 italic">
+                                      {org.unassignedLeads.length} unassigned lead{org.unassignedLeads.length !== 1 ? 's' : ''}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {/* Reps with no supervisor shown directly */}
+                        {org.supervisors.length === 0 && org.reps.map(rep => {
+                          const isRepExpanded = expandedRep === rep.id;
+                          return (
+                            <div key={rep.id} className="border-b border-gray-100">
+                              <div className="px-8 py-2.5 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                                onClick={() => setExpandedRep(isRepExpanded ? null : rep.id)}>
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium bg-gray-100 text-gray-600">Rep</span>
+                                  <span className="text-sm text-gray-700">{rep.full_name}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs text-gray-500">{rep.leads.length} leads · {rep.interactionCount} interactions</span>
+                                  <span className="text-xs text-gray-400">{isRepExpanded ? '▼' : '▶'}</span>
+                                </div>
+                              </div>
+                              {isRepExpanded && rep.leads.length > 0 && (
+                                <div className="px-12 py-2 bg-gray-50 border-t border-gray-100">
+                                  <table className="w-full">
+                                    <thead><tr>
+                                      <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Lead</th>
+                                      <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Company</th>
+                                      <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Status</th>
+                                      <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Score</th>
+                                    </tr></thead>
+                                    <tbody>
+                                      {rep.leads.map(l => (
+                                        <tr key={l.id} className="border-t border-gray-100">
+                                          <td className="px-2 py-1 text-sm text-gray-700">{l.full_name}</td>
+                                          <td className="px-2 py-1 text-sm text-gray-500">{l.company_name || '-'}</td>
+                                          <td className="px-2 py-1"><span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[l.status] || 'bg-gray-100'}`}>{l.status}</span></td>
+                                          <td className="px-2 py-1"><span className={`inline-block px-2 py-0.5 text-xs rounded-full font-bold ${l.lead_score_label === 'hot' ? 'bg-red-100 text-red-700' : l.lead_score_label === 'warm' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{l.lead_score || 0}</span></td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Filter */}

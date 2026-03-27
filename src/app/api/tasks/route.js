@@ -10,6 +10,14 @@ async function authenticate(request) {
   return users.find(u => u.session_token === token) || null;
 }
 
+/** Check if a user is assigned to a task (supports both old single and new multi format) */
+function isAssigned(task, userId) {
+  if (Array.isArray(task.assigned_to_ids)) {
+    return task.assigned_to_ids.includes(userId);
+  }
+  return task.assigned_to_id === userId;
+}
+
 export async function GET(request) {
   try {
     const user = await authenticate(request);
@@ -29,7 +37,7 @@ export async function GET(request) {
     });
 
     if (assignedTo) {
-      tasks = tasks.filter(t => t.assigned_to_id === assignedTo);
+      tasks = tasks.filter(t => isAssigned(t, assignedTo));
     }
     if (customerId) {
       tasks = tasks.filter(t => t.customer_id === customerId);
@@ -37,7 +45,7 @@ export async function GET(request) {
 
     // Non-admin/supervisor only see their own tasks
     if (user.role !== 'admin' && user.role !== 'supervisor') {
-      tasks = tasks.filter(t => t.assigned_to_id === user.id);
+      tasks = tasks.filter(t => isAssigned(t, user.id));
     }
 
     return Response.json({ tasks: tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) });
@@ -52,19 +60,28 @@ export async function POST(request) {
     const user = await authenticate(request);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { customer_id, customer_name, assigned_to_id, assigned_to_name, event_id, title, description, due_date, priority } = await request.json();
+    const { customer_id, customer_name, assigned_to_ids, assigned_to_names,
+            assigned_to_id, assigned_to_name,
+            event_id, title, description, due_date, priority } = await request.json();
 
     if (!title) {
       return Response.json({ error: 'Title is required' }, { status: 400 });
     }
+
+    // Support both old single and new multi format
+    const finalIds = assigned_to_ids || (assigned_to_id ? [assigned_to_id] : []);
+    const finalNames = assigned_to_names || (assigned_to_name ? [assigned_to_name] : []);
 
     const tasks = await getTasks();
     const task = {
       id: uuidv4(),
       customer_id: customer_id || '',
       customer_name: customer_name || '',
-      assigned_to_id: assigned_to_id || '',
-      assigned_to_name: assigned_to_name || '',
+      assigned_to_ids: finalIds,
+      assigned_to_names: finalNames,
+      // Keep legacy fields for backward compat display
+      assigned_to_id: finalIds[0] || '',
+      assigned_to_name: finalNames[0] || '',
       event_id: event_id || '',
       title,
       description: description || '',
@@ -96,12 +113,19 @@ export async function PUT(request) {
     const idx = tasks.findIndex(t => t.id === id);
     if (idx === -1) return Response.json({ error: 'Task not found' }, { status: 404 });
 
-    // Non-admin/supervisor can only update their own tasks
-    if (user.role !== 'admin' && user.role !== 'supervisor' && tasks[idx].assigned_to_id !== user.id) {
+    // Non-admin/supervisor can only update tasks assigned to them
+    if (user.role !== 'admin' && user.role !== 'supervisor' && !isAssigned(tasks[idx], user.id)) {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { created_by_id, created_by_name, created_at, ...safeUpdates } = updates;
+
+    // If multi-assign fields are being updated, also update legacy single fields
+    if (safeUpdates.assigned_to_ids) {
+      safeUpdates.assigned_to_id = safeUpdates.assigned_to_ids[0] || '';
+      safeUpdates.assigned_to_name = (safeUpdates.assigned_to_names || [])[0] || '';
+    }
+
     if (safeUpdates.status === 'completed') {
       safeUpdates.completed_at = new Date().toISOString();
     }
@@ -128,7 +152,7 @@ export async function DELETE(request) {
     const task = tasks.find(t => t.id === id);
     if (!task) return Response.json({ error: 'Task not found' }, { status: 404 });
 
-    if (user.role !== 'admin' && user.role !== 'supervisor' && task.assigned_to_id !== user.id) {
+    if (user.role !== 'admin' && user.role !== 'supervisor' && !isAssigned(task, user.id)) {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 

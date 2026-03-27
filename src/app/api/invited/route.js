@@ -15,10 +15,15 @@ export async function GET(request) {
   try {
     const user = await authenticate(request);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin' && user.role !== 'supervisor') return Response.json({ error: 'Admin/Supervisor only' }, { status: 403 });
 
     const customers = await getCustomers();
-    const invited = customers.filter(c => ['invited', 'accepted', 'declined', 'attended'].includes(c.status));
+    let invited = customers.filter(c => ['invited', 'accepted', 'declined', 'attended'].includes(c.status));
+
+    // Sales reps only see invited leads assigned to them
+    if (user.role === 'sales_rep') {
+      invited = invited.filter(c => c.assigned_rep_id === user.id);
+    }
+
     return Response.json({ customers: invited });
   } catch (err) {
     console.error('Invited GET error:', err);
@@ -43,7 +48,7 @@ export async function POST(request) {
 
     for (const id of customer_ids) {
       const idx = customers.findIndex(c => c.id === id);
-      if (idx !== -1 && customers[idx].status === 'possible') {
+      if (idx !== -1 && customers[idx].status === 'approved') {
         customers[idx].status = 'invited';
         customers[idx].rsvp_token = generateRSVPToken();
         customers[idx].invited_at = new Date().toISOString();

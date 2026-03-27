@@ -40,7 +40,7 @@ export default function InvitedPage() {
       ]);
       if (leadsRes.ok) {
         const data = await leadsRes.json();
-        setLeads((data.customers || []).filter(c => c.status === 'possible'));
+        setLeads((data.customers || []).filter(c => c.status === 'approved'));
       }
       if (invitedRes.ok) {
         const data = await invitedRes.json();
@@ -154,9 +154,7 @@ export default function InvitedPage() {
     setSending(false);
   };
 
-  if (user?.role !== 'admin' && user?.role !== 'supervisor') {
-    return <AppShell><div className="p-8 text-center text-gray-400">Admin access required</div></AppShell>;
-  }
+  const canManage = user?.role === 'admin' || user?.role === 'supervisor';
 
   const statusColors = {
     invited: 'bg-amber-100 text-amber-700',
@@ -184,10 +182,12 @@ export default function InvitedPage() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-4">
-          <button onClick={() => { setTab('promote'); setSelected(new Set()); setShowEmailPanel(false); }}
-            className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'promote' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-            Promote Leads ({leads.length})
-          </button>
+          {canManage && (
+            <button onClick={() => { setTab('promote'); setSelected(new Set()); setShowEmailPanel(false); }}
+              className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'promote' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+              Approved Leads ({leads.length})
+            </button>
+          )}
           <button onClick={() => { setTab('invited'); setSelected(new Set()); setShowEmailPanel(false); }}
             className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'invited' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
             Invited List ({invited.length})
@@ -221,7 +221,7 @@ export default function InvitedPage() {
                 </thead>
                 <tbody>
                   {leads.length === 0 ? (
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No leads to promote</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No approved leads to promote</td></tr>
                   ) : leads.map(l => (
                     <tr key={l.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggleSelect(l.id)}>
                       <td className="px-4 py-3">
@@ -240,7 +240,7 @@ export default function InvitedPage() {
             {/* Mobile Cards */}
             <div className="md:hidden">
               {leads.length === 0 ? (
-                <p className="p-6 text-center text-gray-400">No leads to promote</p>
+                <p className="p-6 text-center text-gray-400">No approved leads to promote</p>
               ) : (
                 <div className="divide-y divide-gray-100">
                   <div className="px-4 py-2 bg-gray-50 flex items-center gap-2">
@@ -270,8 +270,8 @@ export default function InvitedPage() {
         {/* Invited Tab */}
         {tab === 'invited' && (
           <>
-            {/* Email Action Bar */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+            {/* Email Action Bar — admin/supervisor only */}
+            {canManage && <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <p className="text-sm font-medium text-gray-700">{selected.size} selected</p>
@@ -365,7 +365,7 @@ export default function InvitedPage() {
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Invited Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -374,10 +374,10 @@ export default function InvitedPage() {
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-left w-10">
+                      {canManage && <th className="px-4 py-3 text-left w-10">
                         <input type="checkbox" checked={selected.size === invited.length && invited.length > 0}
                           onChange={selectAll} className="rounded border-gray-300" />
-                      </th>
+                      </th>}
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Org</th>
@@ -396,9 +396,9 @@ export default function InvitedPage() {
                       return (
                         <tr key={c.id} className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${selected.has(c.id) ? 'bg-indigo-50' : ''}`}
                           onClick={() => toggleSelect(c.id)}>
-                          <td className="px-4 py-3">
+                          {canManage && <td className="px-4 py-3">
                             <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} className="rounded border-gray-300" />
-                          </td>
+                          </td>}
                           <td className="px-4 py-3">
                             <p className="text-sm font-medium text-gray-800">{c.full_name}</p>
                             <p className="text-xs text-gray-400">{c.company_name}</p>
@@ -442,19 +442,19 @@ export default function InvitedPage() {
                   <p className="p-6 text-center text-gray-400">No invited customers yet. Promote leads first.</p>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    <div className="px-4 py-2 bg-gray-50 flex items-center gap-2">
+                    {canManage && <div className="px-4 py-2 bg-gray-50 flex items-center gap-2">
                       <input type="checkbox" checked={selected.size === invited.length && invited.length > 0}
                         onChange={selectAll} className="rounded border-gray-300" />
                       <span className="text-xs text-gray-500">Select all</span>
-                    </div>
+                    </div>}
                     {invited.map(c => {
                       const typesSent = getEmailTypesSent(c.id);
                       const history = getEmailHistory(c.id);
                       return (
-                        <div key={c.id} className={`p-4 flex items-start gap-3 cursor-pointer ${selected.has(c.id) ? 'bg-indigo-50' : ''}`}
-                          onClick={() => toggleSelect(c.id)}>
-                          <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
-                            className="rounded border-gray-300 mt-0.5 shrink-0" />
+                        <div key={c.id} className={`p-4 flex items-start gap-3 ${canManage ? 'cursor-pointer' : ''} ${selected.has(c.id) ? 'bg-indigo-50' : ''}`}
+                          onClick={() => canManage && toggleSelect(c.id)}>
+                          {canManage && <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
+                            className="rounded border-gray-300 mt-0.5 shrink-0" />}
                           <div className="min-w-0 flex-1 space-y-1.5">
                             <div className="flex items-center justify-between">
                               <p className="text-sm font-semibold text-gray-900 truncate">{c.full_name}</p>

@@ -99,7 +99,7 @@ export async function POST(request) {
           added_by_user_id: user.id,
           added_by_name: user.full_name,
           notes: '',
-          source: 'file_import',
+          source: 'File Import',
           created_at: new Date().toISOString(),
         };
 

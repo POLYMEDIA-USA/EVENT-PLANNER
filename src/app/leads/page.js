@@ -12,7 +12,8 @@ export default function LeadsPage() {
   const [customers, setCustomers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
-  const [form, setForm] = useState({ full_name: '', title: '', company_name: '', email: '', phone: '', alt_email: '', assigned_rep_id: '', notes: '', source: 'Manual' });
+  const [form, setForm] = useState({ full_name: '', title: '', company_name: '', email: '', phone: '', alt_email: '', assigned_rep_id: '', notes: '', source: 'Manual', status: 'possible' });
+  const [formError, setFormError] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showImportWizard, setShowImportWizard] = useState(false);
@@ -30,6 +31,10 @@ export default function LeadsPage() {
   const [duplicates, setDuplicates] = useState({ exact: [], possible: [] });
   const [dupLoading, setDupLoading] = useState(false);
   const [mergeSelections, setMergeSelections] = useState({});
+
+  // Sort state
+  const [sortCol, setSortCol] = useState('');
+  const [sortAsc, setSortAsc] = useState(true);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -51,7 +56,8 @@ export default function LeadsPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/settings/users', { headers });
+      // Use /api/reps which returns org-filtered users for supervisors, all for admin
+      const res = await fetch('/api/reps', { headers });
       if (res.ok) {
         const data = await res.json();
         setAllUsers(data.users || []);
@@ -61,6 +67,7 @@ export default function LeadsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
     const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
 
     // Build assigned rep display fields from selected user
@@ -71,29 +78,45 @@ export default function LeadsPage() {
       assigned_rep_org: repUser ? repUser.organization_name : '',
     };
 
-    if (editingLead) {
-      const res = await fetch('/api/leads', {
-        method: 'PUT', headers, body: JSON.stringify({ id: editingLead.id, ...submitData }),
-      });
-      if (res.ok) { resetForm(); fetchLeads(); }
-    } else {
-      const body = { ...submitData };
-      if (event) body.event_id = event.id;
-      const res = await fetch('/api/leads', { method: 'POST', headers, body: JSON.stringify(body) });
-      if (res.ok) { resetForm(); fetchLeads(); }
+    try {
+      if (editingLead) {
+        const res = await fetch('/api/leads', {
+          method: 'PUT', headers, body: JSON.stringify({ id: editingLead.id, ...submitData }),
+        });
+        if (res.ok) { resetForm(); fetchLeads(); }
+        else { const data = await res.json(); setFormError(data.error || 'Failed to update lead'); }
+      } else {
+        const body = { ...submitData };
+        if (event) body.event_id = event.id;
+        const res = await fetch('/api/leads', { method: 'POST', headers, body: JSON.stringify(body) });
+        if (res.ok) { resetForm(); fetchLeads(); }
+        else { const data = await res.json(); setFormError(data.error || 'Failed to add lead'); }
+      }
+    } catch (err) {
+      setFormError('Network error: ' + err.message);
     }
   };
 
   const handleEdit = (lead) => {
     setEditingLead(lead);
+    // Normalize source for legacy data that may use snake_case (e.g. "file_import" → "File Import")
+    const rawSource = lead.source || 'Manual';
+    const normalizedSource = SOURCE_OPTIONS.find(
+      s => s.toLowerCase() === rawSource.toLowerCase() ||
+           s.toLowerCase().replace(/\s+/g, '_') === rawSource.toLowerCase()
+    ) || rawSource;
     setForm({
-      full_name: lead.full_name, title: lead.title, company_name: lead.company_name,
-      email: lead.email, phone: lead.phone, alt_email: lead.alt_email,
+      full_name: lead.full_name || '', title: lead.title || '', company_name: lead.company_name || '',
+      email: lead.email || '', phone: lead.phone || '', alt_email: lead.alt_email || '',
       assigned_rep_id: lead.assigned_rep_id || '',
       notes: lead.notes || '',
-      source: lead.source || 'Manual',
+      source: normalizedSource,
+      status: lead.status || 'possible',
     });
+    setFormError('');
     setShowForm(true);
+    // Scroll to top so user sees the edit form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id) => {
@@ -103,7 +126,8 @@ export default function LeadsPage() {
   };
 
   const resetForm = () => {
-    setForm({ full_name: '', title: '', company_name: '', email: '', phone: '', alt_email: '', assigned_rep_id: '', notes: '', source: 'Manual' });
+    setForm({ full_name: '', title: '', company_name: '', email: '', phone: '', alt_email: '', assigned_rep_id: '', notes: '', source: 'Manual', status: 'possible' });
+    setFormError('');
     setEditingLead(null);
     setShowForm(false);
   };
@@ -112,9 +136,32 @@ export default function LeadsPage() {
 
   const toggleNotes = (id) => setExpandedNotes(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const filtered = customers.filter(c =>
+  const searchFiltered = customers.filter(c =>
     !search || [c.full_name, c.company_name, c.email, c.input_by, c.assigned_rep_name, c.source].some(f => f?.toLowerCase().includes(search.toLowerCase()))
   );
+
+  // Sort by selected column
+  const filtered = [...searchFiltered].sort((a, b) => {
+    if (!sortCol) return 0;
+    let valA, valB;
+    if (sortCol === 'score') {
+      valA = a.lead_score || 0; valB = b.lead_score || 0;
+      return sortAsc ? valA - valB : valB - valA;
+    }
+    const fieldMap = { name: 'full_name', org: 'company_name', email: 'email', status: 'status', source: 'source', input_by: 'input_by', rep: 'assigned_rep_name' };
+    const field = fieldMap[sortCol] || sortCol;
+    valA = (a[field] || '').toLowerCase();
+    valB = (b[field] || '').toLowerCase();
+    if (valA < valB) return sortAsc ? -1 : 1;
+    if (valA > valB) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const handleSort = (col) => {
+    if (sortCol === col) { setSortAsc(!sortAsc); }
+    else { setSortCol(col); setSortAsc(true); }
+  };
+  const sortArrow = (col) => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
 
   const event = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('cm_event') || 'null') : null;
 
@@ -307,7 +354,7 @@ export default function LeadsPage() {
                             <p className="text-xs text-gray-500">{c.email} {c.company_name ? `- ${c.company_name}` : ''}</p>
                           </div>
                           <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-                            { possible: 'bg-blue-100 text-blue-700', invited: 'bg-amber-100 text-amber-700',
+                            { possible: 'bg-blue-100 text-blue-700', approved: 'bg-teal-100 text-teal-700', invited: 'bg-amber-100 text-amber-700',
                               accepted: 'bg-green-100 text-green-700', declined: 'bg-red-100 text-red-700',
                               attended: 'bg-purple-100 text-purple-700' }[c.status] || 'bg-gray-100 text-gray-600'
                           }`}>
@@ -329,6 +376,7 @@ export default function LeadsPage() {
         {showForm && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">{editingLead ? 'Edit Lead' : 'Add New Lead'}</h2>
+            {formError && <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg">{formError}</div>}
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
@@ -379,6 +427,17 @@ export default function LeadsPage() {
                   ))}
                 </select>
               </div>
+              {editingLead && (user?.role === 'admin' || user?.role === 'supervisor') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select value={form.status} onChange={set('status')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                    {['possible', 'approved', 'invited', 'accepted', 'declined', 'attended'].map(s => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea value={form.notes} onChange={set('notes')} rows={2}
@@ -405,7 +464,7 @@ export default function LeadsPage() {
               <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)}
                 className="px-2 py-1 border border-gray-300 rounded-lg text-xs">
                 <option value="">Change Status...</option>
-                {['possible', 'invited', 'accepted', 'declined', 'attended'].map(s => (
+                {['possible', 'approved', 'invited', 'accepted', 'declined', 'attended'].map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -465,14 +524,14 @@ export default function LeadsPage() {
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Organization</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Email</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Score</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Source</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Input By</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Assigned Rep</th>
+                  <th onClick={() => handleSort('name')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Name{sortArrow('name')}</th>
+                  <th onClick={() => handleSort('org')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Organization{sortArrow('org')}</th>
+                  <th onClick={() => handleSort('email')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Email{sortArrow('email')}</th>
+                  <th onClick={() => handleSort('status')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Status{sortArrow('status')}</th>
+                  <th onClick={() => handleSort('score')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Score{sortArrow('score')}</th>
+                  <th onClick={() => handleSort('source')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Source{sortArrow('source')}</th>
+                  <th onClick={() => handleSort('input_by')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Input By{sortArrow('input_by')}</th>
+                  <th onClick={() => handleSort('rep')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Assigned Rep{sortArrow('rep')}</th>
                   <th className="text-right px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -510,7 +569,7 @@ export default function LeadsPage() {
                     </td>
                     <td className="px-2 py-2">
                       <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-                        { possible: 'bg-blue-100 text-blue-700', invited: 'bg-amber-100 text-amber-700',
+                        { possible: 'bg-blue-100 text-blue-700', approved: 'bg-teal-100 text-teal-700', invited: 'bg-amber-100 text-amber-700',
                           accepted: 'bg-green-100 text-green-700', declined: 'bg-red-100 text-red-700',
                           attended: 'bg-purple-100 text-purple-700' }[c.status] || 'bg-gray-100 text-gray-600'
                       }`}>
@@ -576,7 +635,7 @@ export default function LeadsPage() {
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-semibold text-gray-900 truncate">{c.full_name}</p>
                             <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-                              { possible: 'bg-blue-100 text-blue-700', invited: 'bg-amber-100 text-amber-700',
+                              { possible: 'bg-blue-100 text-blue-700', approved: 'bg-teal-100 text-teal-700', invited: 'bg-amber-100 text-amber-700',
                                 accepted: 'bg-green-100 text-green-700', declined: 'bg-red-100 text-red-700',
                                 attended: 'bg-purple-100 text-purple-700' }[c.status] || 'bg-gray-100 text-gray-600'
                             }`}>

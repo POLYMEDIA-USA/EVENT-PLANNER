@@ -13,7 +13,7 @@ export default function TasksPage() {
   const [customers, setCustomers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [form, setForm] = useState({
-    title: '', description: '', customer_id: '', assigned_to_id: '', due_date: '', priority: 'medium',
+    title: '', description: '', customer_id: '', assigned_to_ids: [], due_date: '', priority: 'medium',
   });
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
@@ -44,10 +44,16 @@ export default function TasksPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/settings/users', { headers });
+      // Use /api/reps — returns role-appropriate users
+      const res = await fetch('/api/reps', { headers });
       if (res.ok) {
         const data = await res.json();
-        setAllUsers(data.users || []);
+        let users = data.users || [];
+        // Sales reps can only assign to themselves
+        if (user?.role === 'sales_rep') {
+          users = users.filter(u => u.id === user.id);
+        }
+        setAllUsers(users);
       }
     } catch (err) { console.error(err); }
   };
@@ -55,15 +61,19 @@ export default function TasksPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const customer = customers.find(c => c.id === form.customer_id);
-    const assignee = allUsers.find(u => u.id === form.assigned_to_id);
+    const assigneeNames = form.assigned_to_ids.map(id => {
+      const u = allUsers.find(u => u.id === id);
+      return u ? u.full_name : '';
+    }).filter(Boolean);
     const body = {
       ...form,
       customer_name: customer?.full_name || '',
-      assigned_to_name: assignee?.full_name || '',
+      assigned_to_ids: form.assigned_to_ids,
+      assigned_to_names: assigneeNames,
     };
     const res = await fetch('/api/tasks', { method: 'POST', headers, body: JSON.stringify(body) });
     if (res.ok) {
-      setForm({ title: '', description: '', customer_id: '', assigned_to_id: '', due_date: '', priority: 'medium' });
+      setForm({ title: '', description: '', customer_id: '', assigned_to_ids: [], due_date: '', priority: 'medium' });
       setShowForm(false);
       fetchTasks();
     }
@@ -85,9 +95,29 @@ export default function TasksPage() {
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
+  const toggleAssignee = (userId) => {
+    setForm(prev => {
+      const ids = prev.assigned_to_ids.includes(userId)
+        ? prev.assigned_to_ids.filter(id => id !== userId)
+        : [...prev.assigned_to_ids, userId];
+      return { ...prev, assigned_to_ids: ids };
+    });
+  };
+
+  /** Get display names for assignees (supports old single + new multi format) */
+  const getAssigneeDisplay = (task) => {
+    if (Array.isArray(task.assigned_to_names) && task.assigned_to_names.length > 0) {
+      return task.assigned_to_names.join(', ');
+    }
+    return task.assigned_to_name || '';
+  };
+
   const now = new Date();
   const filtered = tasks.filter(t => {
-    if (filter === 'my') return t.assigned_to_id === user?.id;
+    if (filter === 'my') {
+      if (Array.isArray(t.assigned_to_ids)) return t.assigned_to_ids.includes(user?.id);
+      return t.assigned_to_id === user?.id;
+    }
     if (filter === 'overdue') return t.is_overdue;
     if (filter === 'completed') return t.status === 'completed';
     return true;
@@ -171,14 +201,27 @@ export default function TasksPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
-                <select value={form.assigned_to_id} onChange={set('assigned_to_id')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
-                  <option value="">-- Select Assignee --</option>
-                  {allUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.full_name}</option>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign To {form.assigned_to_ids.length > 0 && <span className="text-indigo-600">({form.assigned_to_ids.length} selected)</span>}
+                </label>
+                <div className="border border-gray-300 rounded-lg max-h-40 overflow-y-auto p-2 space-y-1">
+                  {allUsers.length === 0 ? (
+                    <p className="text-xs text-gray-400 p-1">No users available</p>
+                  ) : allUsers.map(u => (
+                    <label key={u.id} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm hover:bg-gray-50 ${
+                      form.assigned_to_ids.includes(u.id) ? 'bg-indigo-50' : ''
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={form.assigned_to_ids.includes(u.id)}
+                        onChange={() => toggleAssignee(u.id)}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-gray-700">{u.full_name}</span>
+                      <span className="text-xs text-gray-400">({u.organization_name})</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
@@ -217,6 +260,7 @@ export default function TasksPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(task => {
               const isOverdue = task.is_overdue;
+              const assigneeDisplay = getAssigneeDisplay(task);
               return (
                 <div
                   key={task.id}
@@ -241,8 +285,8 @@ export default function TasksPage() {
                     {task.customer_name && (
                       <div><span className="text-gray-400">Customer:</span> {task.customer_name}</div>
                     )}
-                    {task.assigned_to_name && (
-                      <div><span className="text-gray-400">Assigned:</span> {task.assigned_to_name}</div>
+                    {assigneeDisplay && (
+                      <div><span className="text-gray-400">Assigned:</span> {assigneeDisplay}</div>
                     )}
                     {task.due_date && (
                       <div className={isOverdue ? 'text-red-600 font-medium' : ''}>

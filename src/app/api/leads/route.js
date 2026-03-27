@@ -10,6 +10,20 @@ async function authenticate(request) {
   return users.find(u => u.session_token === token) || null;
 }
 
+/** Fuzzy org name matching (same logic as /api/reps) */
+function normalizeOrg(name) {
+  if (!name) return '';
+  return name.toLowerCase().trim().replace(/\s+/g, ' ')
+    .replace(/\binc\.?\b/g, '').replace(/\bcorp\.?\b/g, '')
+    .replace(/\bllc\.?\b/g, '').replace(/\bltd\.?\b/g, '')
+    .replace(/\bco\.?\b/g, '').replace(/[.,]/g, '').trim();
+}
+function orgMatches(orgA, orgB) {
+  const a = normalizeOrg(orgA), b = normalizeOrg(orgB);
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 export async function GET(request) {
   try {
     const user = await authenticate(request);
@@ -20,10 +34,25 @@ export async function GET(request) {
 
     let customers = await getCustomers();
 
-    // Org-level data silo: sales reps only see their org's customers
-    if (user.role !== 'admin' && user.role !== 'supervisor') {
-      customers = customers.filter(c => c.organization_id === user.organization_id);
+    // Visibility rules:
+    // Admin: sees ALL leads
+    // Supervisor: sees unassigned leads + leads assigned to reps in their org
+    // Sales rep: sees leads they input + leads assigned to them
+    if (user.role === 'sales_rep') {
+      customers = customers.filter(c =>
+        c.assigned_rep_id === user.id ||
+        c.added_by_user_id === user.id
+      );
+    } else if (user.role === 'supervisor') {
+      customers = customers.filter(c =>
+        // Unassigned leads (available for supervisor to assign)
+        !c.assigned_rep_id ||
+        // Leads assigned to reps in supervisor's org
+        c.organization_id === user.organization_id ||
+        orgMatches(c.assigned_rep_org, user.organization_name)
+      );
     }
+    // Admin: no filter — sees everything
 
     // Filter by event if specified
     if (eventId) {
@@ -65,6 +94,17 @@ export async function POST(request) {
     }
 
     const customers = await getCustomers();
+
+    // Auto-assign: when a sales rep creates a lead, assign it to themselves
+    let finalRepId = assigned_rep_id || '';
+    let finalRepName = assigned_rep_name || '';
+    let finalRepOrg = assigned_rep_org || '';
+    if (user.role === 'sales_rep' && !finalRepId) {
+      finalRepId = user.id;
+      finalRepName = user.full_name;
+      finalRepOrg = user.organization_name;
+    }
+
     const customer = {
       id: uuidv4(),
       full_name,
@@ -77,13 +117,13 @@ export async function POST(request) {
       input_by_org: user.organization_name,
       added_by_user_id: user.id,
       added_by_name: user.full_name,
-      assigned_rep_id: assigned_rep_id || '',
-      assigned_rep_name: assigned_rep_name || '',
-      assigned_rep_org: assigned_rep_org || '',
+      assigned_rep_id: finalRepId,
+      assigned_rep_name: finalRepName,
+      assigned_rep_org: finalRepOrg,
       organization_id: user.organization_id,
       organization_name: user.organization_name,
       notes: notes || '',
-      source: source || 'manual',
+      source: source || 'Manual',
       status: 'possible',
       rsvp_token: '',
       qr_code_data: '',
@@ -121,13 +161,39 @@ export async function PUT(request) {
     const idx = customers.findIndex(c => c.id === id);
     if (idx === -1) return Response.json({ error: 'Lead not found' }, { status: 404 });
 
-    // Non-admins can only edit their org's customers
-    if (user.role !== 'admin' && customers[idx].organization_id !== user.organization_id) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    // Permission check:
+    // Admin: can edit any lead
+    // Supervisor: can edit leads they created, or leads assigned to/created by reps in their org
+    // Sales rep: can edit leads assigned to them or created by them
+    const lead = customers[idx];
+    if (user.role === 'sales_rep') {
+      if (lead.assigned_rep_id !== user.id && lead.added_by_user_id !== user.id) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    } else if (user.role === 'supervisor') {
+      const isOwnLead = lead.added_by_user_id === user.id;
+      const isOrgLead = lead.organization_id === user.organization_id || orgMatches(lead.assigned_rep_org, user.organization_name);
+      const isUnassigned = !lead.assigned_rep_id;
+      if (!isOwnLead && !isOrgLead && !isUnassigned) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
+    // Admin: no restriction
 
     const { added_by_user_id, added_by_name, organization_id, organization_name, input_by, input_by_org, ...safeUpdates } = updates;
     customers[idx] = { ...customers[idx], ...safeUpdates, updated_at: new Date().toISOString() };
+
+    // When a rep is assigned, update the lead's org to match the rep
+    // so the sales rep can see the lead in their org-filtered view
+    if (safeUpdates.assigned_rep_id && safeUpdates.assigned_rep_org) {
+      const allUsers = await getUsers();
+      const assignedRep = allUsers.find(u => u.id === safeUpdates.assigned_rep_id);
+      if (assignedRep) {
+        customers[idx].organization_id = assignedRep.organization_id;
+        customers[idx].organization_name = assignedRep.organization_name;
+      }
+    }
+
     await saveCustomers(customers);
 
     // Audit log
@@ -151,8 +217,18 @@ export async function DELETE(request) {
     const customer = customers.find(c => c.id === id);
 
     if (!customer) return Response.json({ error: 'Lead not found' }, { status: 404 });
-    if (user.role !== 'admin' && customer.organization_id !== user.organization_id) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    // Same permission logic as PUT
+    if (user.role === 'sales_rep') {
+      if (customer.assigned_rep_id !== user.id && customer.added_by_user_id !== user.id) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    } else if (user.role === 'supervisor') {
+      const isOwnLead = customer.added_by_user_id === user.id;
+      const isOrgLead = customer.organization_id === user.organization_id || orgMatches(customer.assigned_rep_org, user.organization_name);
+      const isUnassigned = !customer.assigned_rep_id;
+      if (!isOwnLead && !isOrgLead && !isUnassigned) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     customers = customers.filter(c => c.id !== id);

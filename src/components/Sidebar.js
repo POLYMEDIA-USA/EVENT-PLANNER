@@ -28,12 +28,14 @@ const supervisorLinks = [
   { href: '/checkin-dashboard', label: 'Check-In Live', icon: '⚡' },
   { href: '/interactions', label: 'Interactions', icon: '◎' },
   { href: '/tasks', label: 'Tasks', icon: '☐' },
+  { href: '/reps', label: 'My Reps', icon: '◆' },
   { href: '/reports', label: 'Reports', icon: '▤' },
 ];
 
 const repLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: '⌂' },
   { href: '/leads', label: 'Leads', icon: '◉' },
+  { href: '/invited', label: 'Invited', icon: '✉' },
   { href: '/scanner', label: 'QR Scanner', icon: '⊞' },
   { href: '/interactions', label: 'My Interactions', icon: '◎' },
   { href: '/tasks', label: 'My Tasks', icon: '☐' },
