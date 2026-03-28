@@ -30,6 +30,10 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
+  // Sort state
+  const [sortCol, setSortCol] = useState('');
+  const [sortAsc, setSortAsc] = useState(true);
+
   // Duplicates state
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [duplicates, setDuplicates] = useState({ exact: [], possible: [] });
@@ -119,12 +123,32 @@ export default function LeadsPage() {
 
   const filtered = useMemo(() => {
     setPage(1);
-    return customers.filter(c =>
+    const list = customers.filter(c =>
       !search || [c.full_name, c.company_name, c.email, c.input_by, c.assigned_rep_name, c.source].some(f => f?.toLowerCase().includes(search.toLowerCase()))
     );
-  }, [customers, search]);
+    if (!sortCol) return list;
+    return [...list].sort((a, b) => {
+      if (sortCol === 'score') {
+        const va = a.lead_score || 0, vb = b.lead_score || 0;
+        return sortAsc ? va - vb : vb - va;
+      }
+      const fieldMap = { name: 'full_name', org: 'company_name', email: 'email', status: 'status', source: 'source', input_by: 'input_by', rep: 'assigned_rep_name' };
+      const field = fieldMap[sortCol] || sortCol;
+      const va = (a[field] || '').toLowerCase(), vb = (b[field] || '').toLowerCase();
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [customers, search, sortCol, sortAsc]);
 
   const paged = useMemo(() => paginate(filtered, page, pageSize), [filtered, page, pageSize]);
+
+  const handleSort = (col) => {
+    if (sortCol === col) setSortAsc(!sortAsc);
+    else { setSortCol(col); setSortAsc(true); }
+    setPage(1);
+  };
+  const sortArrow = (col) => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
 
   const event = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('cm_event') || 'null') : null;
 
@@ -475,14 +499,14 @@ export default function LeadsPage() {
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Organization</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Email</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Score</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Source</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Input By</th>
-                  <th className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Assigned Rep</th>
+                  <th onClick={() => handleSort('name')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Name{sortArrow('name')}</th>
+                  <th onClick={() => handleSort('org')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Organization{sortArrow('org')}</th>
+                  <th onClick={() => handleSort('email')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Email{sortArrow('email')}</th>
+                  <th onClick={() => handleSort('status')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Status{sortArrow('status')}</th>
+                  <th onClick={() => handleSort('score')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Score{sortArrow('score')}</th>
+                  <th onClick={() => handleSort('source')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Source{sortArrow('source')}</th>
+                  <th onClick={() => handleSort('input_by')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Input By{sortArrow('input_by')}</th>
+                  <th onClick={() => handleSort('rep')} className="text-left px-2 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Assigned Rep{sortArrow('rep')}</th>
                   <th className="text-right px-2 py-2 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
