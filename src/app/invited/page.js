@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
 import Pagination, { paginate } from '@/components/Pagination';
@@ -28,6 +28,8 @@ export default function InvitedPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  const [sortCol, setSortCol] = useState('');
+  const [sortAsc, setSortAsc] = useState(true);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -172,6 +174,26 @@ export default function InvitedPage() {
     return s;
   };
 
+  // Sort helpers
+  const handleSort = (col) => {
+    if (sortCol === col) setSortAsc(!sortAsc);
+    else { setSortCol(col); setSortAsc(true); }
+    setPage(1);
+  };
+  const sortArrow = (col) => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
+
+  const sortedInvited = useMemo(() => {
+    if (!sortCol) return invited;
+    return [...invited].sort((a, b) => {
+      const fieldMap = { name: 'full_name', email: 'email', org: 'organization_name', status: 'status' };
+      const field = fieldMap[sortCol] || sortCol;
+      const va = (a[field] || '').toLowerCase(), vb = (b[field] || '').toLowerCase();
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [invited, sortCol, sortAsc]);
+
   const emailTypeBadgeColors = {
     invitation: 'bg-blue-100 text-blue-700',
     reminder: 'bg-amber-100 text-amber-700',
@@ -192,12 +214,12 @@ export default function InvitedPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-4">
           {canManage && (
-            <button onClick={() => { setTab('promote'); setSelected(new Set()); setShowEmailPanel(false); setPage(1); }}
+            <button onClick={() => { setTab('promote'); setSelected(new Set()); setShowEmailPanel(false); setPage(1); setSortCol(''); }}
               className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'promote' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
               Approved to Invite ({leads.length})
             </button>
           )}
-          <button onClick={() => { setTab('invited'); setSelected(new Set()); setShowEmailPanel(false); setPage(1); }}
+          <button onClick={() => { setTab('invited'); setSelected(new Set()); setShowEmailPanel(false); setPage(1); setSortCol(''); }}
             className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'invited' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
             Invited List ({invited.length})
           </button>
@@ -389,10 +411,10 @@ export default function InvitedPage() {
                         <input type="checkbox" checked={selected.size === invited.length && invited.length > 0}
                           onChange={selectAll} className="rounded border-gray-300" />
                       </th>}
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Org</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">RSVP Status</th>
+                      <th onClick={() => handleSort('name')} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Name{sortArrow('name')}</th>
+                      <th onClick={() => handleSort('email')} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Email{sortArrow('email')}</th>
+                      <th onClick={() => handleSort('org')} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Org{sortArrow('org')}</th>
+                      <th onClick={() => handleSort('status')} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">RSVP Status{sortArrow('status')}</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Emails Sent</th>
                     </tr>
                   </thead>
@@ -401,7 +423,7 @@ export default function InvitedPage() {
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                     ) : invited.length === 0 ? (
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No invited customers yet. Approve leads and send an invitation email first.</td></tr>
-                    ) : paginate(invited, page, pageSize).map(c => {
+                    ) : paginate(sortedInvited, page, pageSize).map(c => {
                       const typesSent = getEmailTypesSent(c.id);
                       const history = getEmailHistory(c.id);
                       return (
@@ -458,7 +480,7 @@ export default function InvitedPage() {
                         onChange={selectAll} className="rounded border-gray-300" />
                       <span className="text-xs text-gray-500">Select all</span>
                     </div>}
-                    {paginate(invited, page, pageSize).map(c => {
+                    {paginate(sortedInvited, page, pageSize).map(c => {
                       const typesSent = getEmailTypesSent(c.id);
                       const history = getEmailHistory(c.id);
                       return (
@@ -493,7 +515,7 @@ export default function InvitedPage() {
                   </div>
                 )}
               </div>
-              <Pagination totalItems={invited.length} page={page} pageSize={pageSize}
+              <Pagination totalItems={sortedInvited.length} page={page} pageSize={pageSize}
                 onPageChange={setPage} onPageSizeChange={setPageSize} />
             </div>
           </>
