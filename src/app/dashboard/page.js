@@ -63,7 +63,15 @@ export default function DashboardPage() {
       // Events (index 0)
       if (results[0].ok) {
         const evData = await results[0].json();
-        setEvents(evData.events || []);
+        const evList = evData.events || [];
+        setEvents(evList);
+
+        // Auto-select if only one event and none currently selected
+        const saved = localStorage.getItem('cm_event');
+        if (!saved && evList.length === 1) {
+          setSelectedEvent(evList[0]);
+          localStorage.setItem('cm_event', JSON.stringify(evList[0]));
+        }
       }
 
       // Stats (index 1)
@@ -177,46 +185,62 @@ export default function DashboardPage() {
         </div>
 
         {/* Event Selector */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Active Event</h2>
-          {selectedEvent ? (
-            <div className="flex items-center justify-between">
+        {selectedEvent ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="inline-block w-2.5 h-2.5 bg-green-500 rounded-full shrink-0"></span>
               <div>
-                <p className="text-lg font-semibold text-indigo-600">{selectedEvent.name}</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm font-semibold text-indigo-600">{selectedEvent.name}</p>
+                <p className="text-xs text-gray-500">
                   {selectedEvent.event_date} at {selectedEvent.event_time} — {selectedEvent.location}
                 </p>
               </div>
-              <button
-                onClick={() => { setSelectedEvent(null); localStorage.removeItem('cm_event'); }}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                Change
-              </button>
             </div>
-          ) : (
-            <div>
-              {events.length === 0 ? (
-                <p className="text-sm text-gray-400">
-                  {user?.role === 'admin' ? 'No events yet. Create one in the Events tab.' : 'No active events available.'}
-                </p>
-              ) : (
-                <div className="grid gap-2">
-                  {events.map(ev => (
-                    <button
-                      key={ev.id}
-                      onClick={() => selectEvent(ev)}
-                      className="text-left p-3 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
-                    >
-                      <p className="font-medium text-gray-800">{ev.name}</p>
-                      <p className="text-xs text-gray-500">{ev.event_date} at {ev.event_time} — {ev.location}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
+            <button
+              onClick={() => { setSelectedEvent(null); localStorage.removeItem('cm_event'); }}
+              className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              Change Event
+            </button>
+          </div>
+        ) : (
+          <div className="mb-6 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50 p-6">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100 mb-3">
+                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-indigo-800">Select an Event to Get Started</h2>
+              <p className="text-sm text-indigo-600 mt-1">
+                Choose an event below to filter leads, invitations, and check-ins.
+              </p>
             </div>
-          )}
-        </div>
+            {events.length === 0 ? (
+              <p className="text-center text-sm text-gray-500">
+                {user?.role === 'admin' ? 'No events yet. Create one in the Events tab.' : 'No active events available.'}
+              </p>
+            ) : (
+              <div className="grid gap-2 max-w-lg mx-auto">
+                {events.map(ev => (
+                  <button
+                    key={ev.id}
+                    onClick={() => selectEvent(ev)}
+                    className="text-left p-4 bg-white border-2 border-indigo-200 rounded-lg hover:border-indigo-500 hover:shadow-md transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800 group-hover:text-indigo-600">{ev.name}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{ev.event_date} at {ev.event_time} — {ev.location}</p>
+                      </div>
+                      <span className="text-indigo-400 group-hover:text-indigo-600 text-lg">→</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
