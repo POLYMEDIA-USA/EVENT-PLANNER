@@ -180,6 +180,11 @@ export async function PUT(request) {
     }
     // Admin: no restriction
 
+    // Block manual status change to "invited" — that status is only set when an email is actually sent
+    if (updates.status === 'invited') {
+      return Response.json({ error: 'Cannot manually set status to "invited". Send an invitation email instead.' }, { status: 400 });
+    }
+
     const { added_by_user_id, added_by_name, organization_id, organization_name, input_by, input_by_org, ...safeUpdates } = updates;
     customers[idx] = { ...customers[idx], ...safeUpdates, updated_at: new Date().toISOString() };
 

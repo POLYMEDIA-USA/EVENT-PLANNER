@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
+import Pagination, { paginate } from '@/components/Pagination';
 
 export default function TasksPage() {
   const { user } = useAuth();
@@ -15,6 +16,8 @@ export default function TasksPage() {
   const [form, setForm] = useState({
     title: '', description: '', customer_id: '', assigned_to_ids: [], due_date: '', priority: 'medium',
   });
+  const [tPage, setTPage] = useState(1);
+  const [tPageSize, setTPageSize] = useState(50);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -150,7 +153,7 @@ export default function TasksPage() {
           ].map(tab => (
             <button
               key={tab.key}
-              onClick={() => setFilter(tab.key)}
+              onClick={() => { setFilter(tab.key); setTPage(1); }}
               className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
                 filter === tab.key
                   ? 'bg-indigo-600 text-white'
@@ -250,7 +253,7 @@ export default function TasksPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(task => {
+            {paginate(filtered, tPage, tPageSize).map(task => {
               const isOverdue = task.is_overdue;
               const assigneeDisplay = getAssigneeDisplay(task);
               return (
@@ -316,6 +319,8 @@ export default function TasksPage() {
             })}
           </div>
         )}
+        <Pagination totalItems={filtered.length} page={tPage} pageSize={tPageSize}
+          onPageChange={setTPage} onPageSizeChange={setTPageSize} />
       </div>
     </AppShell>
   );

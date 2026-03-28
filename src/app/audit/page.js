@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
+import Pagination, { paginate } from '@/components/Pagination';
 
 export default function AuditPage() {
   const { user } = useAuth();
@@ -11,6 +12,8 @@ export default function AuditPage() {
   const [filterAction, setFilterAction] = useState('');
   const [filterUser, setFilterUser] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}` };
@@ -63,12 +66,12 @@ export default function AuditPage() {
               type="text"
               placeholder="Search audit log..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
             />
             <select
               value={filterAction}
-              onChange={(e) => setFilterAction(e.target.value)}
+              onChange={(e) => { setFilterAction(e.target.value); setPage(1); }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All Actions</option>
@@ -78,7 +81,7 @@ export default function AuditPage() {
             </select>
             <select
               value={filterUser}
-              onChange={(e) => setFilterUser(e.target.value)}
+              onChange={(e) => { setFilterUser(e.target.value); setPage(1); }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All Users</option>
@@ -109,7 +112,7 @@ export default function AuditPage() {
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No audit entries found</td></tr>
-                ) : filtered.map(e => (
+                ) : paginate(filtered, page, pageSize).map(e => (
                   <tr key={e.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{e.user_name}</td>
@@ -139,7 +142,7 @@ export default function AuditPage() {
             <p className="p-6 text-center text-gray-400">Loading...</p>
           ) : filtered.length === 0 ? (
             <p className="p-6 text-center text-gray-400">No audit entries found</p>
-          ) : filtered.map(e => (
+          ) : paginate(filtered, page, pageSize).map(e => (
             <div key={e.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
@@ -161,6 +164,8 @@ export default function AuditPage() {
             </div>
           ))}
         </div>
+        <Pagination totalItems={filtered.length} page={page} pageSize={pageSize}
+          onPageChange={setPage} onPageSizeChange={setPageSize} />
       </div>
     </AppShell>
   );

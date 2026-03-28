@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
+import Pagination, { paginate } from '@/components/Pagination';
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -13,6 +14,8 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [uPage, setUPage] = useState(1);
+  const [uPageSize, setUPageSize] = useState(50);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailForm, setEmailForm] = useState({ subject: '', message: '' });
@@ -424,7 +427,7 @@ export default function UsersPage() {
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No users found</td></tr>
-                ) : filtered.map(u => (
+                ) : paginate(filtered, uPage, uPageSize).map(u => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <input
@@ -466,7 +469,7 @@ export default function UsersPage() {
               <p className="p-6 text-center text-gray-400">No users found</p>
             ) : (
               <div className="divide-y divide-gray-100">
-                {filtered.map(u => (
+                {paginate(filtered, uPage, uPageSize).map(u => (
                   <div key={u.id} className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -501,6 +504,8 @@ export default function UsersPage() {
               </div>
             )}
           </div>
+          <Pagination totalItems={filtered.length} page={uPage} pageSize={uPageSize}
+            onPageChange={setUPage} onPageSizeChange={setUPageSize} />
         </div>
 
         {/* Email Modal */}

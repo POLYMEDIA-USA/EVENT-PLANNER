@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
 
-const STATUSES = ['possible', 'approved', 'invited', 'accepted', 'declined', 'attended'];
+// "invited" is excluded — that status is only set when an invitation email is sent
+const STATUSES = ['possible', 'approved', 'accepted', 'declined', 'attended'];
 
 export default function RepsPage() {
   const { user } = useAuth();

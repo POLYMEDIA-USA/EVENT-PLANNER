@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
 import FileImportWizard from '@/components/FileImportWizard';
+import Pagination, { paginate } from '@/components/Pagination';
 
 const SOURCE_OPTIONS = ['Manual', 'File Import', 'Referral', 'Website', 'Social Media', 'Trade Show', 'Other'];
 
@@ -24,6 +25,10 @@ export default function LeadsPage() {
   const [bulkStatus, setBulkStatus] = useState('');
   const [bulkRepId, setBulkRepId] = useState('');
   const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   // Duplicates state
   const [showDuplicates, setShowDuplicates] = useState(false);
@@ -112,9 +117,14 @@ export default function LeadsPage() {
 
   const toggleNotes = (id) => setExpandedNotes(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const filtered = useMemo(() => customers.filter(c =>
-    !search || [c.full_name, c.company_name, c.email, c.input_by, c.assigned_rep_name, c.source].some(f => f?.toLowerCase().includes(search.toLowerCase()))
-  ), [customers, search]);
+  const filtered = useMemo(() => {
+    setPage(1);
+    return customers.filter(c =>
+      !search || [c.full_name, c.company_name, c.email, c.input_by, c.assigned_rep_name, c.source].some(f => f?.toLowerCase().includes(search.toLowerCase()))
+    );
+  }, [customers, search]);
+
+  const paged = useMemo(() => paginate(filtered, page, pageSize), [filtered, page, pageSize]);
 
   const event = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('cm_event') || 'null') : null;
 
@@ -405,7 +415,7 @@ export default function LeadsPage() {
               <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)}
                 className="px-2 py-1 border border-gray-300 rounded-lg text-xs">
                 <option value="">Change Status...</option>
-                {['possible', 'approved', 'invited', 'accepted', 'declined', 'attended'].map(s => (
+                {['possible', 'approved', 'accepted', 'declined', 'attended'].map(s => (
                   <option key={s} value={s}>{s === 'approved' ? 'Approved to Invite' : s}</option>
                 ))}
               </select>
@@ -481,7 +491,7 @@ export default function LeadsPage() {
                   <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">No leads yet. Click &quot;Add Lead&quot; to get started.</td></tr>
-                ) : filtered.map(c => (
+                ) : paged.map(c => (
                   <tr key={c.id} className={`border-b border-gray-100 hover:bg-gray-50 ${selectedIds.has(c.id) ? 'bg-indigo-50' : ''}`}>
                     <td className="px-2 py-2">
                       <input
@@ -563,7 +573,7 @@ export default function LeadsPage() {
                   <span className="text-xs text-gray-500">Select All</span>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {filtered.map(c => (
+                  {paged.map(c => (
                     <div key={c.id} className={`p-4 space-y-2 ${selectedIds.has(c.id) ? 'bg-indigo-50' : ''}`}>
                       <div className="flex items-center gap-3">
                         <input
@@ -618,6 +628,8 @@ export default function LeadsPage() {
               </>
             )}
           </div>
+          <Pagination totalItems={filtered.length} page={page} pageSize={pageSize}
+            onPageChange={setPage} onPageSizeChange={setPageSize} />
         </div>
 
         <FileImportWizard

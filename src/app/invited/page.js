@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
+import Pagination, { paginate } from '@/components/Pagination';
 
 const EMAIL_TYPES = [
   { value: 'invitation', label: 'Invitation', desc: 'Initial invite with RSVP buttons' },
@@ -25,6 +26,8 @@ export default function InvitedPage() {
   const [showEmailPanel, setShowEmailPanel] = useState(false);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -189,12 +192,12 @@ export default function InvitedPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-4">
           {canManage && (
-            <button onClick={() => { setTab('promote'); setSelected(new Set()); setShowEmailPanel(false); }}
+            <button onClick={() => { setTab('promote'); setSelected(new Set()); setShowEmailPanel(false); setPage(1); }}
               className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'promote' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
               Approved to Invite ({leads.length})
             </button>
           )}
-          <button onClick={() => { setTab('invited'); setSelected(new Set()); setShowEmailPanel(false); }}
+          <button onClick={() => { setTab('invited'); setSelected(new Set()); setShowEmailPanel(false); setPage(1); }}
             className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'invited' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
             Invited List ({invited.length})
           </button>
@@ -228,7 +231,7 @@ export default function InvitedPage() {
                 <tbody>
                   {leads.length === 0 ? (
                     <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No approved leads ready to invite</td></tr>
-                  ) : leads.map(l => (
+                  ) : paginate(leads, page, pageSize).map(l => (
                     <tr key={l.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggleSelect(l.id)}>
                       <td className="px-4 py-3">
                         <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} className="rounded border-gray-300" />
@@ -254,7 +257,7 @@ export default function InvitedPage() {
                       onChange={selectAll} className="rounded border-gray-300" />
                     <span className="text-xs text-gray-500">Select all</span>
                   </div>
-                  {leads.map(l => (
+                  {paginate(leads, page, pageSize).map(l => (
                     <div key={l.id} className={`p-4 flex items-start gap-3 cursor-pointer ${selected.has(l.id) ? 'bg-indigo-50' : ''}`}
                       onClick={() => toggleSelect(l.id)}>
                       <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)}
@@ -270,6 +273,8 @@ export default function InvitedPage() {
                 </div>
               )}
             </div>
+            <Pagination totalItems={leads.length} page={page} pageSize={pageSize}
+              onPageChange={setPage} onPageSizeChange={setPageSize} />
           </div>
         )}
 
@@ -396,7 +401,7 @@ export default function InvitedPage() {
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                     ) : invited.length === 0 ? (
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No invited customers yet. Approve leads and send an invitation email first.</td></tr>
-                    ) : invited.map(c => {
+                    ) : paginate(invited, page, pageSize).map(c => {
                       const typesSent = getEmailTypesSent(c.id);
                       const history = getEmailHistory(c.id);
                       return (
@@ -453,7 +458,7 @@ export default function InvitedPage() {
                         onChange={selectAll} className="rounded border-gray-300" />
                       <span className="text-xs text-gray-500">Select all</span>
                     </div>}
-                    {invited.map(c => {
+                    {paginate(invited, page, pageSize).map(c => {
                       const typesSent = getEmailTypesSent(c.id);
                       const history = getEmailHistory(c.id);
                       return (
@@ -488,6 +493,8 @@ export default function InvitedPage() {
                   </div>
                 )}
               </div>
+              <Pagination totalItems={invited.length} page={page} pageSize={pageSize}
+                onPageChange={setPage} onPageSizeChange={setPageSize} />
             </div>
           </>
         )}

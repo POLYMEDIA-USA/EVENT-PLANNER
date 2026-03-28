@@ -22,6 +22,16 @@ export async function GET(request) {
 
     const customer = customers[idx];
 
+    // Lock RSVP after first response — prevent re-clicking
+    if (customer.rsvp_responded_at) {
+      return Response.json({
+        status: customer.status,
+        customer_name: customer.full_name,
+        qr_code_data: customer.qr_code_data || null,
+        already_responded: true,
+      });
+    }
+
     if (action === 'accept') {
       customers[idx].status = 'accepted';
       customers[idx].rsvp_responded_at = new Date().toISOString();
@@ -35,6 +45,8 @@ export async function GET(request) {
     } else if (action === 'decline') {
       customers[idx].status = 'declined';
       customers[idx].rsvp_responded_at = new Date().toISOString();
+      // Clear QR code on decline so stale check-in codes don't persist
+      customers[idx].qr_code_data = null;
     }
 
     await saveCustomers(customers);

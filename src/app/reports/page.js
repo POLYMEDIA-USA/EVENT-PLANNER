@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
+import Pagination, { paginate } from '@/components/Pagination';
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -29,6 +30,10 @@ export default function ReportsPage() {
   const [expandedOrg, setExpandedOrg] = useState(null);
   const [expandedSup, setExpandedSup] = useState(null);
   const [expandedRep, setExpandedRep] = useState(null);
+  const [rptPage, setRptPage] = useState(1);
+  const [rptPageSize, setRptPageSize] = useState(50);
+  const [emlPage, setEmlPage] = useState(1);
+  const [emlPageSize, setEmlPageSize] = useState(50);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -386,7 +391,7 @@ export default function ReportsPage() {
             {/* Filter */}
             <div className="flex flex-wrap gap-2 mb-4">
               {['all', 'possible', 'approved', 'invited', 'accepted', 'declined', 'attended'].map(f => (
-                <button key={f} onClick={() => setFilter(f)}
+                <button key={f} onClick={() => { setFilter(f); setRptPage(1); }}
                   className={`px-3 py-1.5 text-xs rounded-lg font-medium ${filter === f ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
                   {f === 'all' ? 'All' : f === 'approved' ? 'Approved to Invite' : f.charAt(0).toUpperCase() + f.slice(1)} ({f === 'all' ? customers.length : customers.filter(c => c.status === f).length})
                 </button>
@@ -418,7 +423,7 @@ export default function ReportsPage() {
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                     ) : sorted.length === 0 ? (
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No data</td></tr>
-                    ) : sorted.map(c => {
+                    ) : paginate(sorted, rptPage, rptPageSize).map(c => {
                       const emailCount = emails.filter(e => e.customer_id === c.id).length;
                       return (
                         <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -497,6 +502,8 @@ export default function ReportsPage() {
                   </div>
                 )}
               </div>
+              <Pagination totalItems={sorted.length} page={rptPage} pageSize={rptPageSize}
+                onPageChange={setRptPage} onPageSizeChange={setRptPageSize} />
             </div>
           </>
         )}
@@ -530,7 +537,7 @@ export default function ReportsPage() {
                 <tbody>
                   {filteredEmails.length === 0 ? (
                     <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No emails logged yet</td></tr>
-                  ) : filteredEmails.map(e => (
+                  ) : paginate(filteredEmails, emlPage, emlPageSize).map(e => (
                     <tr key={e.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3">
                         <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
@@ -564,7 +571,7 @@ export default function ReportsPage() {
                 <p className="p-6 text-center text-gray-400">No emails logged yet</p>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {filteredEmails.map(e => (
+                  {paginate(filteredEmails, emlPage, emlPageSize).map(e => (
                     <div key={e.id} className="p-4 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 min-w-0">
@@ -591,6 +598,8 @@ export default function ReportsPage() {
                 </div>
               )}
             </div>
+            <Pagination totalItems={filteredEmails.length} page={emlPage} pageSize={emlPageSize}
+              onPageChange={setEmlPage} onPageSizeChange={setEmlPageSize} />
           </div>
         )}
 
