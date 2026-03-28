@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
 
@@ -54,8 +54,14 @@ export default function InteractionsPage() {
     });
 
     if (res.ok) {
+      const data = await res.json();
       setNewNote('');
-      fetchData();
+      // Targeted update: append the new interaction instead of refetching everything
+      if (data.interaction) {
+        setInteractions(prev => [data.interaction, ...prev]);
+      } else {
+        fetchData();
+      }
     }
     setSaving(false);
   };
@@ -81,23 +87,30 @@ export default function InteractionsPage() {
     ? interactions.filter(i => i.customer_id === selectedCustomer.id)
     : [];
 
-  // Build customer list with interaction counts
-  const customersWithCounts = customers.map(c => ({
+  // Build interaction count index once, then derive lists
+  const interactionIndex = useMemo(() => {
+    const idx = {};
+    for (const i of interactions) {
+      idx[i.customer_id] = (idx[i.customer_id] || 0) + 1;
+    }
+    return idx;
+  }, [interactions]);
+
+  const customersWithCounts = useMemo(() => customers.map(c => ({
     ...c,
-    interactionCount: interactions.filter(i => i.customer_id === c.id).length,
-    lastInteraction: interactions.find(i => i.customer_id === c.id)?.created_at || null,
-  }));
+    interactionCount: interactionIndex[c.id] || 0,
+  })), [customers, interactionIndex]);
 
-  const filteredCustomers = customersWithCounts.filter(c =>
-    !search || [c.full_name, c.company_name, c.email, c.title].some(f => f?.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  // Sort: customers with interactions first, then by name
-  const sortedCustomers = [...filteredCustomers].sort((a, b) => {
-    if (a.interactionCount && !b.interactionCount) return -1;
-    if (!a.interactionCount && b.interactionCount) return 1;
-    return (a.full_name || '').localeCompare(b.full_name || '');
-  });
+  const sortedCustomers = useMemo(() => {
+    const filtered = customersWithCounts.filter(c =>
+      !search || [c.full_name, c.company_name, c.email, c.title].some(f => f?.toLowerCase().includes(search.toLowerCase()))
+    );
+    return filtered.sort((a, b) => {
+      if (a.interactionCount && !b.interactionCount) return -1;
+      if (!a.interactionCount && b.interactionCount) return 1;
+      return (a.full_name || '').localeCompare(b.full_name || '');
+    });
+  }, [customersWithCounts, search]);
 
   return (
     <AppShell>
@@ -149,9 +162,10 @@ export default function InteractionsPage() {
                           c.status === 'attended' ? 'bg-green-100 text-green-700' :
                           c.status === 'accepted' ? 'bg-blue-100 text-blue-700' :
                           c.status === 'declined' ? 'bg-red-100 text-red-700' :
+                          c.status === 'approved' ? 'bg-teal-100 text-teal-700' :
                           'bg-gray-100 text-gray-600'
                         }`}>
-                          {c.status}
+                          {c.status === 'approved' ? 'Approved to Invite' : c.status}
                         </span>
                       )}
                     </div>
@@ -188,9 +202,10 @@ export default function InteractionsPage() {
                         selectedCustomer.status === 'accepted' ? 'bg-blue-100 text-blue-700' :
                         selectedCustomer.status === 'declined' ? 'bg-red-100 text-red-700' :
                         selectedCustomer.status === 'invited' ? 'bg-amber-100 text-amber-700' :
+                        selectedCustomer.status === 'approved' ? 'bg-teal-100 text-teal-700' :
                         'bg-gray-100 text-gray-600'
                       }`}>
-                        {selectedCustomer.status}
+                        {selectedCustomer.status === 'approved' ? 'Approved to Invite' : selectedCustomer.status}
                       </span>
                     )}
                   </div>

@@ -116,7 +116,7 @@ export default function InvitedPage() {
     });
     if (res.ok) {
       const data = await res.json();
-      alert(`Promoted ${data.promoted} leads to Invited status`);
+      alert(`Prepared RSVP tokens for ${data.prepared} leads. Send an email to change their status to Invited.`);
       setSelected(new Set());
       fetchData();
     }
@@ -157,10 +157,16 @@ export default function InvitedPage() {
   const canManage = user?.role === 'admin' || user?.role === 'supervisor';
 
   const statusColors = {
+    approved: 'bg-teal-100 text-teal-700',
     invited: 'bg-amber-100 text-amber-700',
     accepted: 'bg-green-100 text-green-700',
     declined: 'bg-red-100 text-red-700',
     attended: 'bg-purple-100 text-purple-700',
+  };
+
+  const statusLabel = (s) => {
+    if (s === 'approved') return 'Approved to Invite';
+    return s;
   };
 
   const emailTypeBadgeColors = {
@@ -185,7 +191,7 @@ export default function InvitedPage() {
           {canManage && (
             <button onClick={() => { setTab('promote'); setSelected(new Set()); setShowEmailPanel(false); }}
               className={`px-4 py-2 text-sm rounded-lg font-medium ${tab === 'promote' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              Approved Leads ({leads.length})
+              Approved to Invite ({leads.length})
             </button>
           )}
           <button onClick={() => { setTab('invited'); setSelected(new Set()); setShowEmailPanel(false); }}
@@ -201,7 +207,7 @@ export default function InvitedPage() {
               <p className="text-sm text-gray-500">{selected.size} selected</p>
               <button onClick={promoteSelected} disabled={selected.size === 0}
                 className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                Promote to Invited
+                Prepare RSVP Tokens
               </button>
             </div>
             {/* Desktop Table */}
@@ -221,7 +227,7 @@ export default function InvitedPage() {
                 </thead>
                 <tbody>
                   {leads.length === 0 ? (
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No approved leads to promote</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No approved leads ready to invite</td></tr>
                   ) : leads.map(l => (
                     <tr key={l.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggleSelect(l.id)}>
                       <td className="px-4 py-3">
@@ -240,7 +246,7 @@ export default function InvitedPage() {
             {/* Mobile Cards */}
             <div className="md:hidden">
               {leads.length === 0 ? (
-                <p className="p-6 text-center text-gray-400">No approved leads to promote</p>
+                <p className="p-6 text-center text-gray-400">No approved leads ready to invite</p>
               ) : (
                 <div className="divide-y divide-gray-100">
                   <div className="px-4 py-2 bg-gray-50 flex items-center gap-2">
@@ -389,7 +395,7 @@ export default function InvitedPage() {
                     {loading ? (
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
                     ) : invited.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No invited customers yet. Promote leads first.</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No invited customers yet. Approve leads and send an invitation email first.</td></tr>
                     ) : invited.map(c => {
                       const typesSent = getEmailTypesSent(c.id);
                       const history = getEmailHistory(c.id);
@@ -407,7 +413,7 @@ export default function InvitedPage() {
                           <td className="px-4 py-3 text-xs text-gray-500">{c.organization_name}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}>
-                              {c.status}
+                              {statusLabel(c.status)}
                             </span>
                           </td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -439,7 +445,7 @@ export default function InvitedPage() {
                 {loading ? (
                   <p className="p-6 text-center text-gray-400">Loading...</p>
                 ) : invited.length === 0 ? (
-                  <p className="p-6 text-center text-gray-400">No invited customers yet. Promote leads first.</p>
+                  <p className="p-6 text-center text-gray-400">No invited customers yet. Approve leads and send an invitation email first.</p>
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {canManage && <div className="px-4 py-2 bg-gray-50 flex items-center gap-2">

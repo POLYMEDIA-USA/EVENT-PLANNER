@@ -24,6 +24,7 @@ export async function GET(request) {
       : customers.filter(c => c.organization_id === user.organization_id);
 
     const possible = scopedCustomers.filter(c => c.status === 'possible').length;
+    const approved = scopedCustomers.filter(c => c.status === 'approved').length;
     const invited = scopedCustomers.filter(c => c.status === 'invited').length;
     const accepted = scopedCustomers.filter(c => c.status === 'accepted').length;
     const declined = scopedCustomers.filter(c => c.status === 'declined').length;
@@ -52,7 +53,7 @@ export async function GET(request) {
       total_interactions: user.role === 'admin'
         ? interactions.length
         : interactions.filter(i => i.sales_rep_id === user.id).length,
-      pipeline: { possible, invited, accepted, declined, attended, total },
+      pipeline: { possible, approved, invited, accepted, declined, attended, total },
       scoreDistribution,
     });
   } catch (err) {

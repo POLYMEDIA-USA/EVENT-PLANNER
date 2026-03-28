@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
 
@@ -131,12 +131,14 @@ export default function ReportsPage() {
     setTimeout(() => printWindow.print(), 500);
   };
 
-  const filtered = customers.filter(c => filter === 'all' || c.status === filter);
-  const sorted = [...filtered].sort((a, b) => {
-    const aVal = a[sortBy] || '';
-    const bVal = b[sortBy] || '';
-    return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-  });
+  const sorted = useMemo(() => {
+    const filtered = customers.filter(c => filter === 'all' || c.status === filter);
+    return [...filtered].sort((a, b) => {
+      const aVal = a[sortBy] || '';
+      const bVal = b[sortBy] || '';
+      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    });
+  }, [customers, filter, sortBy, sortDir]);
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
     else { setSortBy(col); setSortDir('asc'); }
@@ -187,11 +189,11 @@ export default function ReportsPage() {
 
     return Object.values(orgMap).sort((a, b) => a.name.localeCompare(b.name));
   };
-  const orgTree = buildOrgTree();
+  const orgTree = useMemo(() => buildOrgTree(), [allUsers, customers, interactions]);
 
-  const filteredEmails = emails.filter(e =>
+  const filteredEmails = useMemo(() => emails.filter(e =>
     !emailFilter || [e.to, e.customer_name, e.subject, e.type].some(f => f?.toLowerCase().includes(emailFilter.toLowerCase()))
-  );
+  ), [emails, emailFilter]);
 
   const statusColors = {
     possible: 'bg-blue-100 text-blue-700', approved: 'bg-teal-100 text-teal-700',
@@ -245,7 +247,7 @@ export default function ReportsPage() {
                       <div className="flex items-center gap-4">
                         <div className="grid grid-cols-4 gap-3 text-center">
                           <div><p className="text-lg font-bold text-gray-800">{org.stats.total}</p><p className="text-[10px] text-gray-400">Leads</p></div>
-                          <div><p className="text-lg font-bold text-teal-600">{org.stats.approved}</p><p className="text-[10px] text-gray-400">Approved</p></div>
+                          <div><p className="text-lg font-bold text-teal-600">{org.stats.approved}</p><p className="text-[10px] text-gray-400">Approved to Invite</p></div>
                           <div><p className="text-lg font-bold text-amber-600">{org.stats.invited}</p><p className="text-[10px] text-gray-400">Invited</p></div>
                           <div><p className="text-lg font-bold text-purple-600">{org.stats.attended}</p><p className="text-[10px] text-gray-400">Attended</p></div>
                         </div>
@@ -305,7 +307,7 @@ export default function ReportsPage() {
                                                   <td className="px-2 py-1 text-sm text-gray-700">{l.full_name}</td>
                                                   <td className="px-2 py-1 text-sm text-gray-500">{l.company_name || '-'}</td>
                                                   <td className="px-2 py-1">
-                                                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[l.status] || 'bg-gray-100'}`}>{l.status}</span>
+                                                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[l.status] || 'bg-gray-100'}`}>{l.status === 'approved' ? 'Approved to Invite' : l.status}</span>
                                                   </td>
                                                   <td className="px-2 py-1">
                                                     <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-bold ${
@@ -363,7 +365,7 @@ export default function ReportsPage() {
                                         <tr key={l.id} className="border-t border-gray-100">
                                           <td className="px-2 py-1 text-sm text-gray-700">{l.full_name}</td>
                                           <td className="px-2 py-1 text-sm text-gray-500">{l.company_name || '-'}</td>
-                                          <td className="px-2 py-1"><span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[l.status] || 'bg-gray-100'}`}>{l.status}</span></td>
+                                          <td className="px-2 py-1"><span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[l.status] || 'bg-gray-100'}`}>{l.status === 'approved' ? 'Approved to Invite' : l.status}</span></td>
                                           <td className="px-2 py-1"><span className={`inline-block px-2 py-0.5 text-xs rounded-full font-bold ${l.lead_score_label === 'hot' ? 'bg-red-100 text-red-700' : l.lead_score_label === 'warm' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{l.lead_score || 0}</span></td>
                                         </tr>
                                       ))}
@@ -383,10 +385,10 @@ export default function ReportsPage() {
 
             {/* Filter */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {['all', 'possible', 'invited', 'accepted', 'declined', 'attended'].map(f => (
+              {['all', 'possible', 'approved', 'invited', 'accepted', 'declined', 'attended'].map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`px-3 py-1.5 text-xs rounded-lg font-medium ${filter === f ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                  {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)} ({f === 'all' ? customers.length : customers.filter(c => c.status === f).length})
+                  {f === 'all' ? 'All' : f === 'approved' ? 'Approved to Invite' : f.charAt(0).toUpperCase() + f.slice(1)} ({f === 'all' ? customers.length : customers.filter(c => c.status === f).length})
                 </button>
               ))}
             </div>
@@ -425,7 +427,7 @@ export default function ReportsPage() {
                           <td className="px-4 py-3 text-sm text-gray-600">{c.email}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[c.status] || 'bg-gray-100'}`}>
-                              {c.status}
+                              {c.status === 'approved' ? 'Approved to Invite' : c.status}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-500">{c.organization_name}</td>
@@ -474,7 +476,7 @@ export default function ReportsPage() {
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-semibold text-gray-900 truncate">{c.full_name}</p>
                             <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ml-2 ${statusColors[c.status] || 'bg-gray-100'}`}>
-                              {c.status}
+                              {c.status === 'approved' ? 'Approved to Invite' : c.status}
                             </span>
                           </div>
                           {c.company_name && <p className="text-xs text-gray-500 truncate">{c.company_name}</p>}

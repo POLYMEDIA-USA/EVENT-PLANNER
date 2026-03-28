@@ -223,6 +223,11 @@ export async function POST(request) {
       });
 
       if (emailStatus === 'sent') {
+        // Change status from "approved" to "invited" now that the email was actually sent
+        if (customer.status === 'approved') {
+          customer.status = 'invited';
+          customer.invited_at = new Date().toISOString();
+        }
         customer.invite_sent_at = customer.invite_sent_at || new Date().toISOString();
         customer[`last_${email_type}_at`] = new Date().toISOString();
         customers[idx] = customer;

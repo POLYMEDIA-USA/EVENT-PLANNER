@@ -3,22 +3,65 @@ import { Storage } from '@google-cloud/storage';
 const storage = new Storage();
 const BUCKET_NAME = process.env.GCS_BUCKET || 'event-planner-bucket';
 
+// ── In-memory cache with TTL ──────────────────────────────────────────────────
+// Eliminates redundant GCS reads within the same time window.
+// Every successful read is cached; every write invalidates the cache for that file.
+const CACHE_TTL_MS = 5000; // 5 seconds
+const cache = new Map(); // filename → { data, ts }
+
+// Dedup in-flight reads so concurrent calls for the same file share one download
+const inflight = new Map(); // filename → Promise
+
+function getCached(filename) {
+  const entry = cache.get(filename);
+  if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.data;
+  return undefined;
+}
+
+function setCache(filename, data) {
+  cache.set(filename, { data, ts: Date.now() });
+}
+
+function invalidateCache(filename) {
+  cache.delete(filename);
+}
+
 // Data files matching the schema:
 // organizations.json, users.json, events.json, customers.json,
 // event_assignments.json, interactions.json, settings.json
 
 async function readJSON(filename) {
-  try {
-    const bucket = storage.bucket(BUCKET_NAME);
-    const file = bucket.file(filename);
-    const [exists] = await file.exists();
-    if (!exists) return filename === 'settings.json' ? {} : [];
-    const [content] = await file.download();
-    return JSON.parse(content.toString());
-  } catch (err) {
-    console.error(`Error reading ${filename}:`, err);
-    return filename === 'settings.json' ? {} : [];
-  }
+  // Return from cache if fresh
+  const cached = getCached(filename);
+  if (cached !== undefined) return cached;
+
+  // Dedup: if another caller is already fetching this file, piggyback on that promise
+  if (inflight.has(filename)) return inflight.get(filename);
+
+  const promise = (async () => {
+    try {
+      const bucket = storage.bucket(BUCKET_NAME);
+      const file = bucket.file(filename);
+      const [exists] = await file.exists();
+      if (!exists) {
+        const empty = filename === 'settings.json' ? {} : [];
+        setCache(filename, empty);
+        return empty;
+      }
+      const [content] = await file.download();
+      const data = JSON.parse(content.toString());
+      setCache(filename, data);
+      return data;
+    } catch (err) {
+      console.error(`Error reading ${filename}:`, err);
+      return filename === 'settings.json' ? {} : [];
+    } finally {
+      inflight.delete(filename);
+    }
+  })();
+
+  inflight.set(filename, promise);
+  return promise;
 }
 
 async function writeJSON(filename, data) {
@@ -28,9 +71,12 @@ async function writeJSON(filename, data) {
     await file.save(JSON.stringify(data, null, 2), {
       contentType: 'application/json',
     });
+    // Update cache with the data we just wrote so subsequent reads are instant
+    setCache(filename, data);
     return true;
   } catch (err) {
     console.error(`Error writing ${filename}:`, err);
+    invalidateCache(filename);
     return false;
   }
 }

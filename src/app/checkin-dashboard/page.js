@@ -36,25 +36,20 @@ export default function CheckInDashboardPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // Poll interactions every 10 seconds
+  // Poll every 30 seconds (parallel fetches)
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch('/api/interactions', { headers });
-        if (res.ok) {
-          const data = await res.json();
-          setInteractions(data.interactions || []);
-        }
-        // Also refresh leads to pick up status changes
         const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
         const leadsUrl = event ? `/api/leads?event_id=${event.id}` : '/api/leads';
-        const leadsRes = await fetch(leadsUrl, { headers });
-        if (leadsRes.ok) {
-          const data = await leadsRes.json();
-          setLeads(data.customers || []);
-        }
+        const [intRes, leadsRes] = await Promise.all([
+          fetch('/api/interactions', { headers }),
+          fetch(leadsUrl, { headers }),
+        ]);
+        if (intRes.ok) setInteractions((await intRes.json()).interactions || []);
+        if (leadsRes.ok) setLeads((await leadsRes.json()).customers || []);
       } catch (err) { console.error(err); }
-    }, 10000);
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -85,7 +80,7 @@ export default function CheckInDashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <span className="text-xs text-gray-500">Live — updates every 10s</span>
+            <span className="text-xs text-gray-500">Live — updates every 30s</span>
           </div>
         </div>
 

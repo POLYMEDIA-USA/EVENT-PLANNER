@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
 
@@ -18,29 +18,20 @@ export default function RepsPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
-  useEffect(() => { fetchReps(); fetchLeads(); }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const fetchReps = async () => {
-    try {
-      const res = await fetch('/api/reps', { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setReps(data.users || []);
-      }
-    } catch (err) { console.error(err); }
-    setLoading(false);
-  };
-
-  const fetchLeads = async () => {
+  const fetchAll = async () => {
     try {
       const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
-      const url = event ? `/api/leads?event_id=${event.id}` : '/api/leads';
-      const res = await fetch(url, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setLeads(data.customers || []);
-      }
+      const leadsUrl = event ? `/api/leads?event_id=${event.id}` : '/api/leads';
+      const [repsRes, leadsRes] = await Promise.all([
+        fetch('/api/reps', { headers }),
+        fetch(leadsUrl, { headers }),
+      ]);
+      if (repsRes.ok) setReps((await repsRes.json()).users || []);
+      if (leadsRes.ok) setLeads((await leadsRes.json()).customers || []);
     } catch (err) { console.error(err); }
+    setLoading(false);
   };
 
   const updateLeadStatus = async (leadId, newStatus) => {
@@ -62,9 +53,9 @@ export default function RepsPage() {
 
   const getRepLeads = (repId) => leads.filter(l => l.assigned_rep_id === repId);
 
-  const filtered = reps.filter(u =>
+  const filtered = useMemo(() => reps.filter(u =>
     !search || [u.full_name, u.email, u.organization_name, u.role].some(f => f?.toLowerCase().includes(search.toLowerCase()))
-  );
+  ), [reps, search]);
 
   if (!user || (user.role !== 'supervisor' && user.role !== 'admin')) {
     return <AppShell><div className="p-8 text-center text-gray-400">Supervisor or Admin access required</div></AppShell>;
@@ -185,7 +176,7 @@ export default function RepsPage() {
                                           onClick={(e) => e.stopPropagation()}
                                           className={`px-2 py-0.5 text-xs rounded-full font-medium border-0 cursor-pointer ${statusStyles[l.status] || 'bg-gray-100 text-gray-600'} ${updating === l.id ? 'opacity-50' : ''}`}
                                         >
-                                          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                          {STATUSES.map(s => <option key={s} value={s}>{s === 'approved' ? 'Approved to Invite' : s}</option>)}
                                         </select>
                                       </td>
                                       <td className="px-2 py-1.5">
@@ -271,7 +262,7 @@ export default function RepsPage() {
                                       onChange={(e) => updateLeadStatus(l.id, e.target.value)}
                                       className={`px-2 py-0.5 text-xs rounded-full font-medium border-0 cursor-pointer ${statusStyles[l.status] || 'bg-gray-100 text-gray-600'} ${updating === l.id ? 'opacity-50' : ''}`}
                                     >
-                                      {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                      {STATUSES.map(s => <option key={s} value={s}>{s === 'approved' ? 'Approved to Invite' : s}</option>)}
                                     </select>
                                   </div>
                                 </div>

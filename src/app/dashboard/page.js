@@ -302,6 +302,7 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   {[
                     { label: 'Possible', count: stats.pipeline.possible, color: 'bg-blue-500' },
+                    { label: 'Approved to Invite', count: stats.pipeline.approved || 0, color: 'bg-teal-500' },
                     { label: 'Invited', count: stats.pipeline.invited, color: 'bg-amber-500' },
                     { label: 'Accepted', count: stats.pipeline.accepted, color: 'bg-green-500' },
                     { label: 'Declined', count: stats.pipeline.declined, color: 'bg-red-400' },
@@ -358,6 +359,7 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   {[
                     { label: 'Possible', count: stats.pipeline.possible, color: 'bg-blue-500' },
+                    { label: 'Approved to Invite', count: stats.pipeline.approved || 0, color: 'bg-teal-500' },
                     { label: 'Invited', count: stats.pipeline.invited, color: 'bg-amber-500' },
                     { label: 'Accepted', count: stats.pipeline.accepted, color: 'bg-green-500' },
                     { label: 'Declined', count: stats.pipeline.declined, color: 'bg-red-400' },

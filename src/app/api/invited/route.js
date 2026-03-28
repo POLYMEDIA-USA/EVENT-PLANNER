@@ -17,7 +17,7 @@ export async function GET(request) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const customers = await getCustomers();
-    let invited = customers.filter(c => ['invited', 'accepted', 'declined', 'attended'].includes(c.status));
+    let invited = customers.filter(c => ['approved', 'invited', 'accepted', 'declined', 'attended'].includes(c.status));
 
     // Sales reps only see invited leads assigned to them
     if (user.role === 'sales_rep') {
@@ -31,7 +31,8 @@ export async function GET(request) {
   }
 }
 
-// POST - promote leads to invited status
+// POST - prepare approved leads with RSVP tokens (does NOT change status to invited;
+//         status changes to "invited" only when an email is actually sent)
 export async function POST(request) {
   try {
     const user = await authenticate(request);
@@ -44,22 +45,24 @@ export async function POST(request) {
     }
 
     const customers = await getCustomers();
-    let promoted = 0;
+    let prepared = 0;
 
     for (const id of customer_ids) {
       const idx = customers.findIndex(c => c.id === id);
       if (idx !== -1 && customers[idx].status === 'approved') {
-        customers[idx].status = 'invited';
-        customers[idx].rsvp_token = generateRSVPToken();
-        customers[idx].invited_at = new Date().toISOString();
-        promoted++;
+        // Generate RSVP token but keep status as "approved" until email is sent
+        if (!customers[idx].rsvp_token) {
+          customers[idx].rsvp_token = generateRSVPToken();
+        }
+        customers[idx].approved_to_invite_at = new Date().toISOString();
+        prepared++;
       }
     }
 
     await saveCustomers(customers);
-    return Response.json({ promoted, total: customer_ids.length });
+    return Response.json({ prepared, total: customer_ids.length });
   } catch (err) {
     console.error('Invite POST error:', err);
-    return Response.json({ error: 'Failed to promote leads' }, { status: 500 });
+    return Response.json({ error: 'Failed to prepare leads' }, { status: 500 });
   }
 }

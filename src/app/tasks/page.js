@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
 
@@ -19,42 +19,30 @@ export default function TasksPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
-  useEffect(() => { fetchTasks(); fetchCustomers(); fetchUsers(); }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const fetchTasks = async () => {
+  const fetchAll = async () => {
     try {
-      const res = await fetch('/api/tasks', { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data.tasks || []);
+      const [tasksRes, leadsRes, repsRes] = await Promise.all([
+        fetch('/api/tasks', { headers }),
+        fetch('/api/leads', { headers }),
+        fetch('/api/reps', { headers }),
+      ]);
+      if (tasksRes.ok) setTasks((await tasksRes.json()).tasks || []);
+      if (leadsRes.ok) setCustomers((await leadsRes.json()).customers || []);
+      if (repsRes.ok) {
+        let users = (await repsRes.json()).users || [];
+        if (user?.role === 'sales_rep') users = users.filter(u => u.id === user.id);
+        setAllUsers(users);
       }
     } catch (err) { console.error(err); }
     setLoading(false);
   };
 
-  const fetchCustomers = async () => {
+  const fetchTasks = async () => {
     try {
-      const res = await fetch('/api/leads', { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(data.customers || []);
-      }
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      // Use /api/reps — returns role-appropriate users
-      const res = await fetch('/api/reps', { headers });
-      if (res.ok) {
-        const data = await res.json();
-        let users = data.users || [];
-        // Sales reps can only assign to themselves
-        if (user?.role === 'sales_rep') {
-          users = users.filter(u => u.id === user.id);
-        }
-        setAllUsers(users);
-      }
+      const res = await fetch('/api/tasks', { headers });
+      if (res.ok) setTasks((await res.json()).tasks || []);
     } catch (err) { console.error(err); }
   };
 
@@ -84,13 +72,18 @@ export default function TasksPage() {
     const res = await fetch('/api/tasks', {
       method: 'PUT', headers, body: JSON.stringify({ id: task.id, status: newStatus }),
     });
-    if (res.ok) fetchTasks();
+    if (res.ok) {
+      // Targeted update instead of full refetch
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus, is_overdue: newStatus === 'completed' ? false : t.is_overdue } : t));
+    }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this task?')) return;
-    await fetch('/api/tasks', { method: 'DELETE', headers, body: JSON.stringify({ id }) });
-    fetchTasks();
+    const res = await fetch('/api/tasks', { method: 'DELETE', headers, body: JSON.stringify({ id }) });
+    if (res.ok) {
+      setTasks(prev => prev.filter(t => t.id !== id));
+    }
   };
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
@@ -112,8 +105,7 @@ export default function TasksPage() {
     return task.assigned_to_name || '';
   };
 
-  const now = new Date();
-  const filtered = tasks.filter(t => {
+  const filtered = useMemo(() => tasks.filter(t => {
     if (filter === 'my') {
       if (Array.isArray(t.assigned_to_ids)) return t.assigned_to_ids.includes(user?.id);
       return t.assigned_to_id === user?.id;
@@ -121,7 +113,7 @@ export default function TasksPage() {
     if (filter === 'overdue') return t.is_overdue;
     if (filter === 'completed') return t.status === 'completed';
     return true;
-  });
+  }), [tasks, filter, user?.id]);
 
   const priorityColors = {
     high: 'bg-red-100 text-red-700',
