@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import AppShell from '@/components/AppShell';
 
@@ -13,6 +13,10 @@ export default function InteractionsPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const isManager = user?.role === 'admin' || user?.role === 'supervisor';
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
@@ -38,9 +42,51 @@ export default function InteractionsPage() {
     setLoading(false);
   };
 
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    setPendingFiles(prev => [...prev, ...files]);
+    e.target.value = '';
+  };
+
+  const removePendingFile = (idx) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const uploadFiles = async () => {
+    const uploaded = [];
+    const authToken = localStorage.getItem('cm_token');
+    for (const file of pendingFiles) {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/interactions/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        uploaded.push({
+          gcs_path: data.gcs_path,
+          filename: data.filename,
+          content_type: data.content_type,
+          size: data.size,
+          url: data.url,
+        });
+      }
+    }
+    return uploaded;
+  };
+
   const addNote = async () => {
-    if (!selectedCustomer || !newNote.trim()) return;
+    if (!selectedCustomer || (!newNote.trim() && pendingFiles.length === 0)) return;
     setSaving(true);
+    setUploading(pendingFiles.length > 0);
+
+    let attachments = [];
+    if (pendingFiles.length > 0) {
+      attachments = await uploadFiles();
+    }
+    setUploading(false);
 
     const event = JSON.parse(localStorage.getItem('cm_event') || '{}');
     const res = await fetch('/api/interactions', {
@@ -50,13 +96,14 @@ export default function InteractionsPage() {
         event_id: event.id || '',
         notes: newNote.trim(),
         interaction_type: 'manual_note',
+        attachments,
       }),
     });
 
     if (res.ok) {
       const data = await res.json();
       setNewNote('');
-      // Targeted update: append the new interaction instead of refetching everything
+      setPendingFiles([]);
       if (data.interaction) {
         setInteractions(prev => [data.interaction, ...prev]);
       } else {
@@ -211,7 +258,7 @@ export default function InteractionsPage() {
                   </div>
                 </div>
 
-                {/* Add Note */}
+                {/* Add Note + Attachments */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Add a Note</label>
                   <textarea
@@ -221,14 +268,56 @@ export default function InteractionsPage() {
                     placeholder="Type your interaction notes here..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                   />
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-400">Logged as: {user?.full_name}</p>
+
+                  {/* File previews */}
+                  {pendingFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {pendingFiles.map((f, idx) => (
+                        <div key={idx} className="relative group bg-gray-50 border border-gray-200 rounded-lg p-2 flex items-center gap-2">
+                          {f.type.startsWith('image/') ? (
+                            <img src={URL.createObjectURL(f)} alt="" className="w-12 h-12 object-cover rounded" />
+                          ) : (
+                            <div className="w-12 h-12 bg-red-50 rounded flex items-center justify-center">
+                              <span className="text-red-500 text-xs font-bold">PDF</span>
+                            </div>
+                          )}
+                          <span className="text-xs text-gray-600 truncate max-w-[100px]">{f.name}</span>
+                          <button onClick={() => removePendingFile(idx)}
+                            className="text-xs text-red-400 hover:text-red-600 ml-1">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-gray-400 mr-2">Logged as: {user?.full_name}</p>
+                      <input ref={fileInputRef} type="file" accept="image/*,application/pdf" multiple
+                        onChange={handleFileSelect} className="hidden" />
+                      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+                        onChange={handleFileSelect} className="hidden" />
+                      <button onClick={() => fileInputRef.current?.click()} type="button"
+                        className="px-2.5 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        Attach
+                      </button>
+                      <button onClick={() => cameraInputRef.current?.click()} type="button"
+                        className="px-2.5 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Photo
+                      </button>
+                    </div>
                     <button
                       onClick={addNote}
-                      disabled={!newNote.trim() || saving}
+                      disabled={(!newNote.trim() && pendingFiles.length === 0) || saving}
                       className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                     >
-                      {saving ? 'Saving...' : 'Save Note'}
+                      {uploading ? 'Uploading...' : saving ? 'Saving...' : 'Save Note'}
                     </button>
                   </div>
                 </div>
@@ -260,6 +349,23 @@ export default function InteractionsPage() {
                           </div>
                           {i.notes && (
                             <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{i.notes}</p>
+                          )}
+                          {i.attachments && i.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {i.attachments.map((att, idx) => (
+                                <a key={idx} href={att.url} target="_blank" rel="noopener noreferrer"
+                                  className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                                  {att.content_type?.startsWith('image/') ? (
+                                    <img src={att.url} alt={att.filename} className="w-20 h-20 object-cover" />
+                                  ) : (
+                                    <div className="w-20 h-20 bg-red-50 flex flex-col items-center justify-center">
+                                      <span className="text-red-500 text-xs font-bold">PDF</span>
+                                      <span className="text-[9px] text-gray-400 truncate max-w-[70px] mt-1">{att.filename}</span>
+                                    </div>
+                                  )}
+                                </a>
+                              ))}
+                            </div>
                           )}
                         </div>
                       ))}

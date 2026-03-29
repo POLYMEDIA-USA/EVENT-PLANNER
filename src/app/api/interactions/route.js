@@ -41,7 +41,7 @@ export async function POST(request) {
     const user = await authenticate(request);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { customer_id, event_id, notes, interaction_type, qr_data } = await request.json();
+    const { customer_id, event_id, notes, interaction_type, qr_data, attachments } = await request.json();
 
     // If QR scan, find customer by QR data
     let resolvedCustomerId = customer_id;
@@ -63,6 +63,16 @@ export async function POST(request) {
       }
     } else if (resolvedCustomerId) {
       resolvedCustomer = customers.find(c => c.id === resolvedCustomerId) || null;
+
+      // If this is a check-in (qr_scan type) by customer ID, also mark as attended
+      if (interaction_type === 'qr_scan' && resolvedCustomer) {
+        const idx = customers.findIndex(c => c.id === resolvedCustomerId);
+        if (idx !== -1 && customers[idx].status !== 'attended') {
+          customers[idx].status = 'attended';
+          customers[idx].attended_at = new Date().toISOString();
+          await saveCustomers(customers);
+        }
+      }
     }
 
     if (!resolvedCustomerId) {
@@ -78,6 +88,7 @@ export async function POST(request) {
       sales_rep_name: user.full_name,
       notes: notes || '',
       interaction_type: interaction_type || 'manual_note',
+      attachments: attachments || [],
       created_at: new Date().toISOString(),
     };
 

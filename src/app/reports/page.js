@@ -167,7 +167,7 @@ export default function ReportsPage() {
 
     // Attach leads to reps and compute stats
     Object.values(orgMap).forEach(org => {
-      org.stats = { total: 0, approved: 0, invited: 0, attended: 0, interactions: 0 };
+      org.stats = { total: 0, approved: 0, invited: 0, declined: 0, attended: 0, interactions: 0 };
       org.unassignedLeads = [];
       org.reps.forEach(rep => {
         rep.leads = customers.filter(c => c.assigned_rep_id === rep.id);
@@ -176,6 +176,7 @@ export default function ReportsPage() {
           org.stats.total++;
           if (l.status === 'approved') org.stats.approved++;
           if (['invited', 'accepted'].includes(l.status)) org.stats.invited++;
+          if (l.status === 'declined') org.stats.declined++;
           if (l.status === 'attended') org.stats.attended++;
         });
         org.stats.interactions += rep.interactionCount;
@@ -250,10 +251,11 @@ export default function ReportsPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-4">
-                        <div className="grid grid-cols-4 gap-3 text-center">
+                        <div className="grid grid-cols-5 gap-3 text-center">
                           <div><p className="text-lg font-bold text-gray-800">{org.stats.total}</p><p className="text-[10px] text-gray-400">Leads</p></div>
                           <div><p className="text-lg font-bold text-teal-600">{org.stats.approved}</p><p className="text-[10px] text-gray-400">Approved to Invite</p></div>
                           <div><p className="text-lg font-bold text-amber-600">{org.stats.invited}</p><p className="text-[10px] text-gray-400">Invited</p></div>
+                          <div><p className="text-lg font-bold text-red-600">{org.stats.declined}</p><p className="text-[10px] text-gray-400">Declined</p></div>
                           <div><p className="text-lg font-bold text-purple-600">{org.stats.attended}</p><p className="text-[10px] text-gray-400">Attended</p></div>
                         </div>
                         <span className="text-gray-400 text-sm">{isOrgExpanded ? '▼' : '▶'}</span>

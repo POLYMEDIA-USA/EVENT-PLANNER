@@ -14,6 +14,9 @@ export default function ScannerPage() {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [manualCode, setManualCode] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
+  const [attendees, setAttendees] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const scanIntervalRef = useRef(null);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
@@ -121,10 +124,54 @@ export default function ScannerPage() {
     alert('Notes saved!');
   };
 
+  const searchByName = async () => {
+    if (!nameSearch.trim()) return;
+    setSearchLoading(true);
+    try {
+      const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
+      const url = event ? `/api/leads?event_id=${event.id}` : '/api/leads';
+      const res = await fetch(url, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const q = nameSearch.toLowerCase();
+        const matches = (data.customers || [])
+          .filter(c => ['accepted', 'invited', 'attended'].includes(c.status))
+          .filter(c => c.full_name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q));
+        setAttendees(matches);
+      }
+    } catch (err) { console.error(err); }
+    setSearchLoading(false);
+  };
+
+  const checkInByName = async (customer) => {
+    // Manually mark as attended via the interactions API using their QR code or customer_id directly
+    const res = await fetch('/api/interactions', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        customer_id: customer.id,
+        interaction_type: 'qr_scan',
+        event_id: JSON.parse(localStorage.getItem('cm_event') || '{}').id || '',
+        notes: 'Checked in by name search (no QR code)',
+        ...(customer.qr_code_data ? { qr_data: customer.qr_code_data } : {}),
+      }),
+    });
+    if (res.ok) {
+      const iData = await res.json();
+      setResult({ success: true, interaction: iData.interaction, customer: iData.customer || customer });
+      setAttendees([]);
+      setNameSearch('');
+    } else {
+      const err = await res.json();
+      setResult({ success: false, error: err.error });
+    }
+  };
+
   const reset = () => {
     setResult(null);
     setNotes('');
     setManualCode('');
+    setNameSearch('');
+    setAttendees([]);
     setError('');
   };
 
@@ -183,6 +230,55 @@ export default function ScannerPage() {
                     Check In
                   </button>
                 </div>
+              </div>
+
+              {/* Search by Name */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Search by Name</p>
+                <p className="text-xs text-gray-400 mb-2">Find an attendee by last name or email if they don&apos;t have a QR code.</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={nameSearch}
+                    onChange={(e) => setNameSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && searchByName()}
+                    placeholder="Search by last name or email..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button onClick={searchByName} disabled={searchLoading}
+                    className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                    {searchLoading ? 'Searching...' : 'Search'}
+                  </button>
+                </div>
+
+                {attendees.length > 0 && (
+                  <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-3 py-2 text-xs text-gray-500 border-b border-gray-200">
+                      {attendees.length} match{attendees.length !== 1 ? 'es' : ''} found — tap to check in
+                    </div>
+                    <div className="divide-y divide-gray-100 max-h-60 overflow-y-auto">
+                      {attendees.map(a => (
+                        <button key={a.id} onClick={() => checkInByName(a)}
+                          className="w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{a.full_name}</p>
+                            <p className="text-xs text-gray-500">{a.company_name}{a.company_name && a.email ? ' · ' : ''}{a.email}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
+                              a.status === 'attended' ? 'bg-green-100 text-green-700' :
+                              a.status === 'accepted' ? 'bg-blue-100 text-blue-700' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>{a.status}</span>
+                            {a.status !== 'attended' && (
+                              <span className="text-indigo-600 text-xs font-medium">Check In →</span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </>
