@@ -40,7 +40,7 @@ export default function AppShell({ children }) {
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden">
       <Sidebar user={user} onLogout={handleLogout} />
-      <main className="flex-1 min-w-0 p-4 pt-16 pb-20 md:p-6 md:pt-6 md:pb-6 overflow-x-hidden overflow-y-auto">
+      <main className="flex-1 min-w-0 max-w-full p-4 pt-16 pb-20 md:p-6 md:pt-6 md:pb-6 overflow-x-hidden overflow-y-auto">
         {!hasEvent && pathname !== '/dashboard' && pathname !== '/events' && pathname !== '/settings' && pathname !== '/users' && pathname !== '/audit' && (
           <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-2">

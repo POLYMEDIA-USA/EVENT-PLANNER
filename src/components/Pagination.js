@@ -60,7 +60,7 @@ export default function Pagination({
       </div>
 
       {/* Right: page buttons */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-wrap justify-center">
         <button
           onClick={() => onPageChange(safeP - 1)}
           disabled={safeP <= 1}
