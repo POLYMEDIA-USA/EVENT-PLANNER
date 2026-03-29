@@ -15,8 +15,13 @@ export default function InteractionsPage() {
   const [saving, setSaving] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraMode, setCameraMode] = useState('photo'); // 'photo' or 'document'
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const scanInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const isManager = user?.role === 'admin' || user?.role === 'supervisor';
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
@@ -50,6 +55,88 @@ export default function InteractionsPage() {
 
   const removePendingFile = (idx) => {
     setPendingFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // In-app camera functions
+  const openCamera = async (mode) => {
+    setCameraMode(mode);
+    setShowCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch {
+      // Fallback: if getUserMedia fails (desktop, permissions denied), use file input
+      setShowCamera(false);
+      if (mode === 'photo') cameraInputRef.current?.click();
+      else scanInputRef.current?.click();
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+
+    if (cameraMode === 'document') {
+      // Document scan processing: crop center, enhance contrast, sharpen
+      const sw = video.videoWidth;
+      const sh = video.videoHeight;
+      // Crop to center 85% to remove edges/fingers
+      const cropX = Math.round(sw * 0.075);
+      const cropY = Math.round(sh * 0.075);
+      const cropW = Math.round(sw * 0.85);
+      const cropH = Math.round(sh * 0.85);
+
+      const scanCanvas = document.createElement('canvas');
+      scanCanvas.width = cropW;
+      scanCanvas.height = cropH;
+      const sctx = scanCanvas.getContext('2d');
+      sctx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+      // Enhance: increase contrast and brightness for document readability
+      const imageData = sctx.getImageData(0, 0, cropW, cropH);
+      const d = imageData.data;
+      const contrast = 1.4; // 40% more contrast
+      const brightness = 20;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = Math.min(255, Math.max(0, contrast * (d[i] - 128) + 128 + brightness));
+        d[i+1] = Math.min(255, Math.max(0, contrast * (d[i+1] - 128) + 128 + brightness));
+        d[i+2] = Math.min(255, Math.max(0, contrast * (d[i+2] - 128) + 128 + brightness));
+      }
+      sctx.putImageData(imageData, 0, 0);
+
+      scanCanvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setPendingFiles(prev => [...prev, file]);
+        }
+        closeCamera();
+      }, 'image/jpeg', 0.95);
+    } else {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setPendingFiles(prev => [...prev, file]);
+        }
+        closeCamera();
+      }, 'image/jpeg', 0.92);
+    }
+  };
+
+  const closeCamera = () => {
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(t => t.stop());
+    }
+    setShowCamera(false);
   };
 
   const uploadFiles = async () => {
@@ -269,9 +356,54 @@ export default function InteractionsPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                   />
 
+                  {/* In-app camera viewfinder */}
+                  {showCamera && (
+                    <div className="mt-3 bg-black rounded-lg overflow-hidden relative" style={{ aspectRatio: '4/3' }}>
+                      <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+                      <canvas ref={canvasRef} className="hidden" />
+                      {/* Document scan guide overlay */}
+                      {cameraMode === 'document' && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          {/* Semi-transparent overlay outside the scan area */}
+                          <div className="absolute inset-0 bg-black/30"></div>
+                          {/* Clear scan window in center */}
+                          <div className="absolute" style={{ top: '7.5%', left: '7.5%', width: '85%', height: '85%', boxShadow: '0 0 0 9999px rgba(0,0,0,0.3)' }}>
+                            <div className="w-full h-full border-2 border-white rounded-lg relative">
+                              {/* Corner markers */}
+                              <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-green-400 rounded-tl"></div>
+                              <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-green-400 rounded-tr"></div>
+                              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-green-400 rounded-bl"></div>
+                              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-green-400 rounded-br"></div>
+                            </div>
+                          </div>
+                          <div className="absolute top-2 left-0 right-0 text-center z-10">
+                            <span className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full">
+                              Position document within the frame &middot; Hold steady
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-4">
+                        <button onClick={closeCamera}
+                          className="px-4 py-2 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-600">
+                          Cancel
+                        </button>
+                        <button onClick={capturePhoto}
+                          className="w-14 h-14 bg-white rounded-full border-4 border-gray-300 hover:border-indigo-400 transition-colors flex items-center justify-center">
+                          <div className="w-10 h-10 bg-red-500 rounded-full"></div>
+                        </button>
+                      </div>
+                      <div className="absolute top-3 left-0 right-0 text-center">
+                        <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">
+                          {cameraMode === 'document' ? 'Scan Document' : 'Take Photo'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* File previews */}
                   {pendingFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-3">
                       {pendingFiles.map((f, idx) => (
                         <div key={idx} className="relative group bg-gray-50 border border-gray-200 rounded-lg p-2 flex items-center gap-2">
                           {f.type.startsWith('image/') ? (
@@ -289,27 +421,37 @@ export default function InteractionsPage() {
                     </div>
                   )}
 
+                  {/* Hidden fallback inputs for devices that don't support getUserMedia */}
+                  <input ref={fileInputRef} type="file" accept="image/*,application/pdf" multiple
+                    onChange={handleFileSelect} className="hidden" />
+                  <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+                    onChange={handleFileSelect} className="hidden" />
+                  <input ref={scanInputRef} type="file" accept="image/*" capture="environment"
+                    onChange={handleFileSelect} className="hidden" />
+
                   <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-gray-400 mr-2">Logged as: {user?.full_name}</p>
-                      <input ref={fileInputRef} type="file" accept="image/*,application/pdf" multiple
-                        onChange={handleFileSelect} className="hidden" />
-                      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
-                        onChange={handleFileSelect} className="hidden" />
+                    <div className="flex items-center gap-1.5">
                       <button onClick={() => fileInputRef.current?.click()} type="button"
                         className="px-2.5 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center gap-1">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                         </svg>
-                        Attach
+                        Attach File
                       </button>
-                      <button onClick={() => cameraInputRef.current?.click()} type="button"
-                        className="px-2.5 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center gap-1">
+                      <button onClick={() => openCamera('photo')} type="button"
+                        className="px-2.5 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 flex items-center gap-1">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        Photo
+                        Take Photo
+                      </button>
+                      <button onClick={() => openCamera('document')} type="button"
+                        className="px-2.5 py-1.5 text-xs bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Scan Doc
                       </button>
                     </div>
                     <button
@@ -317,9 +459,10 @@ export default function InteractionsPage() {
                       disabled={(!newNote.trim() && pendingFiles.length === 0) || saving}
                       className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                     >
-                      {uploading ? 'Uploading...' : saving ? 'Saving...' : 'Save Note'}
+                      {uploading ? 'Uploading...' : saving ? 'Saving...' : 'Save'}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-400 mt-1">Logged as: {user?.full_name}</p>
                 </div>
 
                 {/* Interaction History */}
