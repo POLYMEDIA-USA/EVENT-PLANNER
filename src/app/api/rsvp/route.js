@@ -3,14 +3,26 @@ export const dynamic = 'force-dynamic';
 import { getCustomers, saveCustomers, getInteractions, saveInteractions, getEventAssignments } from '@/lib/gcs';
 import { v4 as uuidv4 } from 'uuid';
 
+// GET — no longer processes RSVP; just returns status so scanners can't trigger actions
 export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get('token');
+  if (!token) return Response.json({ error: 'Missing token' }, { status: 400 });
+
+  const customers = await getCustomers();
+  const customer = customers.find(c => c.rsvp_token === token);
+  if (!customer) return Response.json({ error: 'Invalid or expired RSVP token' }, { status: 404 });
+
+  return Response.json({ valid: true, customer_name: customer.full_name });
+}
+
+// POST — actual RSVP processing (only triggered by human clicking the confirm button)
+export async function POST(request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const token = searchParams.get('token');
-    const action = searchParams.get('action');
+    const { token, action } = await request.json();
 
     if (!token || !action) {
-      return Response.json({ error: 'Invalid RSVP link' }, { status: 400 });
+      return Response.json({ error: 'Invalid RSVP request' }, { status: 400 });
     }
 
     const customers = await getCustomers();
@@ -22,7 +34,7 @@ export async function GET(request) {
 
     const customer = customers[idx];
 
-    // Lock RSVP after first response — prevent re-clicking
+    // Lock RSVP after first response
     if (customer.rsvp_responded_at) {
       return Response.json({
         status: customer.status,
@@ -35,8 +47,7 @@ export async function GET(request) {
     if (action === 'accept') {
       customers[idx].status = 'accepted';
       customers[idx].rsvp_responded_at = new Date().toISOString();
-      // Generate short 4-char alphanumeric check-in code (uppercase)
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 to avoid confusion
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let code;
       do {
         code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
@@ -45,7 +56,6 @@ export async function GET(request) {
     } else if (action === 'decline') {
       customers[idx].status = 'declined';
       customers[idx].rsvp_responded_at = new Date().toISOString();
-      // Clear QR code on decline so stale check-in codes don't persist
       customers[idx].qr_code_data = null;
     }
 
@@ -62,7 +72,6 @@ export async function GET(request) {
     });
     await saveInteractions(interactions);
 
-    // Look up event_id for this customer
     const assignments = await getEventAssignments();
     const assignment = assignments.find(a => a.customer_id === customer.id);
     const event_id = assignment ? assignment.event_id : null;

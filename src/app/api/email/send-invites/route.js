@@ -166,13 +166,21 @@ export async function POST(request) {
     const emailLogs = await getEmailLogs();
     let sent = 0;
     let failed = 0;
+    let skipped = 0;
     const errors = [];
+    const emailsSentInBatch = new Set(); // prevent duplicate emails to same address in one batch
 
     for (const id of customer_ids) {
       const idx = customers.findIndex(c => c.id === id);
       if (idx === -1) continue;
 
       const customer = customers[idx];
+
+      // Skip if we already sent to this email address in this batch
+      if (emailsSentInBatch.has(customer.email.toLowerCase())) {
+        skipped++;
+        continue;
+      }
 
       // Ensure RSVP token exists
       if (!customer.rsvp_token) {
@@ -197,6 +205,7 @@ export async function POST(request) {
           html: trackedHtml,
         });
         sent++;
+        emailsSentInBatch.add(customer.email.toLowerCase());
       } catch (err) {
         console.error(`Failed to send to ${customer.email}:`, err.message);
         emailStatus = 'failed';
@@ -237,11 +246,11 @@ export async function POST(request) {
     await saveCustomers(customers);
     await saveEmailLogs(emailLogs);
 
-    const message = failed > 0
-      ? `Sent ${sent}, failed ${failed}. Check email log for details.`
-      : `Successfully sent ${sent} ${email_type} email${sent !== 1 ? 's' : ''}!`;
+    let message = `Successfully sent ${sent} ${email_type} email${sent !== 1 ? 's' : ''}!`;
+    if (failed > 0) message = `Sent ${sent}, failed ${failed}. Check email log for details.`;
+    if (skipped > 0) message += ` (${skipped} duplicate address${skipped !== 1 ? 'es' : ''} skipped)`;
 
-    return Response.json({ sent, failed, message, errors });
+    return Response.json({ sent, failed, skipped, message, errors });
   } catch (err) {
     console.error('Send invites error:', err);
     return Response.json({ error: 'Failed to send emails: ' + err.message }, { status: 500 });
