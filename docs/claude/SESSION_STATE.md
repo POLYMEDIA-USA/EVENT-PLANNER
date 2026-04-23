@@ -1,43 +1,46 @@
 # Session State
 
 ## Current Version
-- Version: 0.8.2 (in `package.json`)
-- Last released tag: `v0.8.2` (commit `5c975ac`)
-- Branch: `main`, in sync with `origin/main`
-- Last session: 2026-04-22
+- Version: **0.9.0** (tagged `v0.9.0` at commit `00222d4`)
+- Branch: `main`, pushed to `origin/main`
+- Last session: 2026-04-23
 
 ## Deployed To
-- Cloud Run `corpmarketer` / project `corpmarketer-app` / region `us-central1` — v0.8.2 live at https://corpmarketer-678407058536.us-central1.run.app
+- Cloud Run `corpmarketer` / project `corpmarketer-app` / region `us-central1`
+- Revision: `corpmarketer-00050-xb8`, 100% traffic
+- Live URL: https://corpmarketer-678407058536.us-central1.run.app
+- Verified: root HTTP 200, `/api/auth/me` correctly 401, `/api/auth/forgot-password` responds with the generic success message
 
-## What Was Done Last Session
-- Recent tagged releases (most recent first):
-  - **v0.8.2** — mobile viewport scaling fix on iPhone
-  - **v0.8.1** — in-app camera for photos and document scanning
-  - **v0.8.0** — photo/document attachments, name-search check-in, reports "declined" column
-  - **v0.7.5** — email scanner false-decline fix (RSVP moved to POST-confirm), prevent duplicate emails within a send batch
-- Created `TECHNICAL_MANUAL.md` at project root (developer-facing; complements user-guide HTML in `public/`)
+## What Was Done Last Session (v0.9.0 shipped)
 
-## Uncommitted Work In Progress (Password Reset + Invited Search)
-Not yet committed, not yet deployed. Working tree state:
-- **New files (untracked):**
-  - `src/app/api/auth/forgot-password/route.js` — POST endpoint; generates 16-byte base64url reset token (1-hour expiry), writes `reset_token` and `reset_token_expires` onto user record, emails a reset link using existing SMTP settings. Always returns a generic success message so unknown emails can't be enumerated.
-  - `src/app/api/auth/reset-password/route.js` — POST endpoint; validates token, checks expiry, hashes new password via `hashPassword` from `@/lib/auth`, clears `reset_token`/`reset_token_expires`, and clears `session_token` to force re-login. Min password length: 4.
-  - `src/app/reset-password/page.js` — public client page at `/reset-password?token=…`, `Suspense`-wrapped form (new + confirm password), redirects to `/` on success after 3s.
-- **Modified files:**
-  - `src/app/page.js` — login page now has a "Forgot Password?" link (visible only in `mode === 'login'`) that opens an inline panel calling `/api/auth/forgot-password`.
-  - `src/app/invited/page.js` — added search box (name/email/company/organization) on Invited tab. `selectAll`, `selectByStatus`, and `selectNotSentType` now operate over the filtered set `filteredInvited` rather than the full `invited` list. Search clears `page` back to 1.
+### Major features
+- **Password reset end-to-end**: `/api/auth/forgot-password`, `/api/auth/reset-password`, public `/reset-password` page, "Forgot Password?" link on login. 16-byte base64url token, 1-hour expiry, clears `session_token` on successful reset so other sessions are kicked out.
+- **Dashboard**: new "Accepted" stat card; Pipeline Funnel (relabeled "Event Overview" for reps/supervisors) visible to all roles — the admin/supervisor duplicates were collapsed into a single universal block above the role-specific sections.
+- **Leads**: sales reps now see unassigned leads in their list; new teal "Claim Selected" bulk button self-assigns them. Backend permits self-claim on unassigned leads.
+- **Reports exposed to sales reps**: sidebar link added; admin/supervisor-only guard removed; Post-Event tab hidden for reps. Added "Accepted" column to the org-overview row — "Invited" now means only `status='invited'` (was lumping accepted together).
+- **Email log API**: exposed to sales reps and supervisors with customer-visibility scoping (reps see only emails for their own/assigned customers).
+- **Interactions — two-column layout**: "My Customers" (role-scoped) and "At Event" (all attendees, event-scoped). Any user can now log notes on walk-up attendees without them being assigned.
+- **Check-In Live**: exposed to sales reps; split into "Event Progress" (everyone, event-wide) and "My Leads at this Event" (role-scoped, hidden for admins since it would be redundant).
+- **Invited tab — clickable email previews**: email-type badges now open an inert popup modal showing exactly what was sent. Amber banner warns "Preview only — links and buttons are disabled"; `pointer-events: none` on all `<a>`/`<button>`/`<input>`/`<form>` inside the preview.
+- **Scanner — Last-Moment Adds (admin only)**: walk-in form (first/last/organization/email) that creates the lead and checks them in via a `qr_scan` interaction in one flow.
 
-## What's Next (prioritized)
-1. **Smoke-test password reset end-to-end on local dev** (`npm run dev`) — confirm: forgot → email arrives → reset link works → new password logs in → session_token from previous device is invalidated.
-2. **Decide scope of this release** — is it `v0.8.3` (patch: invited-search) + `v0.9.0` (minor: password reset), or one combined `v0.9.0`? See [PLANS.md](./PLANS.md).
-3. **Update user guides** under `public/*-guide.html` to document the Forgot Password flow and the new Invited search box.
-4. **Update [TECHNICAL_MANUAL.md](../../TECHNICAL_MANUAL.md)** — add `/api/auth/forgot-password` and `/api/auth/reset-password` to the API Reference (section 8), document `reset_token` / `reset_token_expires` fields in the `users.json` schema (section 17).
-5. **Follow the backup/deploy checklist** in [DEPLOYMENT_RULES.md](./DEPLOYMENT_RULES.md) (bump version → guides → commit → tag → push → `gcloud builds submit` → `gcloud run deploy`).
+### API additions
+- `/api/leads?scope=attended` — all attendees event-wide, any role. Used by Interactions page.
+- `/api/leads?scope=event` — all customers at an event, any role. Used by Check-In Live for shared event stats.
+
+### Schema
+- `users.json` gained `reset_token` and `reset_token_expires` fields.
+
+### Docs
+- `TECHNICAL_MANUAL.md` bumped to v0.9.0, new endpoints and schema fields documented.
+- `public/admin-guide.html`, `public/supervisor-guide.html`, `public/sales-rep-guide.html` all got a "What's New in v0.9.0" callout and v0.9.0 footer.
+
+## What's Next
+No planned work. Release is shipped, verified, and clean.
 
 ## Active Blockers
-- None. Password-reset feature is code-complete but untested.
+None.
 
-## Notes for the Next Claude
-- **No `docs/claude/` existed before this session.** This directory was created to match the global `~/.claude/CLAUDE.md` handoff protocol. Treat its contents as the starting baseline.
-- The `TECHNICAL_MANUAL.md` that appeared as "untracked" in `git status` is the legitimate developer manual — it should be committed alongside the password-reset changes.
-- Do NOT run `npm install` unless asked; `node_modules/` is already present.
+## Local Dev Notes
+- Local dev requires `GCS_BUCKET=corpmarketer-bucket npm run dev` — without the env var the app defaults to `event-planner-bucket` (wrong project / billing disabled). Cloud Run sets the var automatically via `--set-env-vars`.
+- If the dev server leaves a zombie on port 3000, kill it with the PowerShell `Get-NetTCPConnection` one-liner before restarting.

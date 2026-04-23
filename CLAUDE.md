@@ -18,7 +18,8 @@
 
 ## Verified Baselines (immutable — don't second-guess)
 
-- **v0.8.2** — known-good production state. Live at https://corpmarketer-678407058536.us-central1.run.app. Mobile viewport fix verified on iPhone.
+- **v0.9.0** — current production state (revision `corpmarketer-00050-xb8`, 100% traffic). Password reset, role-wide dashboard/reports, walk-in check-ins, inert email preview, two-column Interactions, sales-rep self-claim. `/api/auth/forgot-password` verified live.
+- **v0.8.2** — mobile viewport fix verified on iPhone.
 - **v0.7.5** — RSVP POST-confirm model verified to block email-scanner false declines.
 - **SMTP fix 2026-04-06** — `rma.manager@verifyai.net` with Gmail App Password `FunnelFlow` is the current working configuration. Stored in `settings.json` in GCS, configured via the Settings page.
 
