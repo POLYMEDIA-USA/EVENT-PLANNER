@@ -167,7 +167,7 @@ export default function ReportsPage() {
 
     // Attach leads to reps and compute stats
     Object.values(orgMap).forEach(org => {
-      org.stats = { total: 0, approved: 0, invited: 0, declined: 0, attended: 0, interactions: 0 };
+      org.stats = { total: 0, approved: 0, invited: 0, accepted: 0, declined: 0, attended: 0, interactions: 0 };
       org.unassignedLeads = [];
       org.reps.forEach(rep => {
         rep.leads = customers.filter(c => c.assigned_rep_id === rep.id);
@@ -175,7 +175,8 @@ export default function ReportsPage() {
         rep.leads.forEach(l => {
           org.stats.total++;
           if (l.status === 'approved') org.stats.approved++;
-          if (['invited', 'accepted'].includes(l.status)) org.stats.invited++;
+          if (l.status === 'invited') org.stats.invited++;
+          if (l.status === 'accepted') org.stats.accepted++;
           if (l.status === 'declined') org.stats.declined++;
           if (l.status === 'attended') org.stats.attended++;
         });
@@ -188,7 +189,9 @@ export default function ReportsPage() {
       org.unassignedLeads.forEach(l => {
         org.stats.total++;
         if (l.status === 'approved') org.stats.approved++;
-        if (['invited', 'accepted'].includes(l.status)) org.stats.invited++;
+        if (l.status === 'invited') org.stats.invited++;
+        if (l.status === 'accepted') org.stats.accepted++;
+        if (l.status === 'declined') org.stats.declined++;
         if (l.status === 'attended') org.stats.attended++;
       });
     });
@@ -208,9 +211,7 @@ export default function ReportsPage() {
     attended: 'bg-purple-100 text-purple-700',
   };
 
-  if (user?.role !== 'admin' && user?.role !== 'supervisor') {
-    return <AppShell><div className="p-8 text-center text-gray-400">Admin access required</div></AppShell>;
-  }
+  const canSeePostEvent = user?.role === 'admin' || user?.role === 'supervisor';
 
   return (
     <AppShell>
@@ -226,10 +227,12 @@ export default function ReportsPage() {
               className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'emails' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
               Emails ({emails.length})
             </button>
-            <button onClick={() => { setTab('post-event'); if (!postEventData) fetchPostEvent(); }}
-              className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'post-event' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              Post-Event
-            </button>
+            {canSeePostEvent && (
+              <button onClick={() => { setTab('post-event'); if (!postEventData) fetchPostEvent(); }}
+                className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'post-event' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                Post-Event
+              </button>
+            )}
           </div>
         </div>
 
@@ -251,10 +254,11 @@ export default function ReportsPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-4">
-                        <div className="grid grid-cols-5 gap-3 text-center">
+                        <div className="grid grid-cols-6 gap-3 text-center">
                           <div><p className="text-lg font-bold text-gray-800">{org.stats.total}</p><p className="text-[10px] text-gray-400">Leads</p></div>
                           <div><p className="text-lg font-bold text-teal-600">{org.stats.approved}</p><p className="text-[10px] text-gray-400">Approved to Invite</p></div>
                           <div><p className="text-lg font-bold text-amber-600">{org.stats.invited}</p><p className="text-[10px] text-gray-400">Invited</p></div>
+                          <div><p className="text-lg font-bold text-green-600">{org.stats.accepted}</p><p className="text-[10px] text-gray-400">Accepted</p></div>
                           <div><p className="text-lg font-bold text-red-600">{org.stats.declined}</p><p className="text-[10px] text-gray-400">Declined</p></div>
                           <div><p className="text-lg font-bold text-purple-600">{org.stats.attended}</p><p className="text-[10px] text-gray-400">Attended</p></div>
                         </div>

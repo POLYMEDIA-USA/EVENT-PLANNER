@@ -243,12 +243,13 @@ export default function DashboardPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           {[
             { label: 'Active Events', value: stats.events, color: 'indigo' },
             { label: 'Total Leads', value: stats.leads, color: 'blue' },
             { label: 'Invited', value: stats.invited, color: 'amber' },
-            { label: 'Attended', value: stats.attended, color: 'green' },
+            { label: 'Accepted', value: stats.pipeline?.accepted || 0, color: 'green' },
+            { label: 'Attended', value: stats.attended, color: 'purple' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
               <p className="text-sm text-gray-500">{s.label}</p>
@@ -256,6 +257,43 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* Pipeline Funnel — visible to all roles (server-scoped by org) */}
+        {stats.pipeline && stats.pipeline.total > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">
+              {role === 'sales_rep' || role === 'supervisor' ? 'Event Overview' : 'Sales Pipeline'}
+            </h2>
+            <div className="space-y-3">
+              {[
+                { label: 'Possible', count: stats.pipeline.possible, color: 'bg-blue-500' },
+                { label: 'Approved to Invite', count: stats.pipeline.approved || 0, color: 'bg-teal-500' },
+                { label: 'Invited', count: stats.pipeline.invited, color: 'bg-amber-500' },
+                { label: 'Accepted', count: stats.pipeline.accepted, color: 'bg-green-500' },
+                { label: 'Declined', count: stats.pipeline.declined, color: 'bg-red-400' },
+                { label: 'Attended', count: stats.pipeline.attended, color: 'bg-purple-500' },
+              ].map((stage, i, arr) => {
+                const pct = stats.pipeline.total > 0 ? Math.round((stage.count / stats.pipeline.total) * 100) : 0;
+                const prev = i > 0 && i !== 3 ? arr[i - 1].count : null;
+                const convRate = prev && prev > 0 ? Math.round((stage.count / prev) * 100) : null;
+                return (
+                  <div key={stage.label}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="font-medium text-gray-700">{stage.label}</span>
+                      <span className="text-gray-500">
+                        {stage.count} ({pct}%)
+                        {convRate !== null && <span className="ml-2 text-xs text-gray-400">({convRate}% from prev)</span>}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-5">
+                      <div className={`${stage.color} h-5 rounded-full transition-all`} style={{ width: `${Math.max(pct, 1)}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Sales Rep: My Leads, My Tasks, Recent Interactions */}
         {role === 'sales_rep' && (
@@ -319,40 +357,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Pipeline Funnel — supervisor */}
-            {stats.pipeline && stats.pipeline.total > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
-                <h2 className="text-sm font-semibold text-gray-700 mb-4">Sales Pipeline</h2>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Possible', count: stats.pipeline.possible, color: 'bg-blue-500' },
-                    { label: 'Approved to Invite', count: stats.pipeline.approved || 0, color: 'bg-teal-500' },
-                    { label: 'Invited', count: stats.pipeline.invited, color: 'bg-amber-500' },
-                    { label: 'Accepted', count: stats.pipeline.accepted, color: 'bg-green-500' },
-                    { label: 'Declined', count: stats.pipeline.declined, color: 'bg-red-400' },
-                    { label: 'Attended', count: stats.pipeline.attended, color: 'bg-purple-500' },
-                  ].map((stage, i, arr) => {
-                    const pct = stats.pipeline.total > 0 ? Math.round((stage.count / stats.pipeline.total) * 100) : 0;
-                    const prev = i > 0 && i !== 3 ? arr[i - 1].count : null;
-                    const convRate = prev && prev > 0 ? Math.round((stage.count / prev) * 100) : null;
-                    return (
-                      <div key={stage.label}>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="font-medium text-gray-700">{stage.label}</span>
-                          <span className="text-gray-500">
-                            {stage.count} ({pct}%)
-                            {convRate !== null && <span className="ml-2 text-xs text-gray-400">({convRate}% from prev)</span>}
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-5">
-                          <div className={`${stage.color} h-5 rounded-full transition-all`} style={{ width: `${Math.max(pct, 1)}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </>
         )}
 
@@ -375,41 +379,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-400 mt-1">Across all users</p>
               </div>
             </div>
-
-            {/* Pipeline Funnel — admin */}
-            {stats.pipeline && stats.pipeline.total > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
-                <h2 className="text-sm font-semibold text-gray-700 mb-4">Sales Pipeline</h2>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Possible', count: stats.pipeline.possible, color: 'bg-blue-500' },
-                    { label: 'Approved to Invite', count: stats.pipeline.approved || 0, color: 'bg-teal-500' },
-                    { label: 'Invited', count: stats.pipeline.invited, color: 'bg-amber-500' },
-                    { label: 'Accepted', count: stats.pipeline.accepted, color: 'bg-green-500' },
-                    { label: 'Declined', count: stats.pipeline.declined, color: 'bg-red-400' },
-                    { label: 'Attended', count: stats.pipeline.attended, color: 'bg-purple-500' },
-                  ].map((stage, i, arr) => {
-                    const pct = stats.pipeline.total > 0 ? Math.round((stage.count / stats.pipeline.total) * 100) : 0;
-                    const prev = i > 0 && i !== 3 ? arr[i - 1].count : null;
-                    const convRate = prev && prev > 0 ? Math.round((stage.count / prev) * 100) : null;
-                    return (
-                      <div key={stage.label}>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="font-medium text-gray-700">{stage.label}</span>
-                          <span className="text-gray-500">
-                            {stage.count} ({pct}%)
-                            {convRate !== null && <span className="ml-2 text-xs text-gray-400">({convRate}% from prev)</span>}
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-5">
-                          <div className={`${stage.color} h-5 rounded-full transition-all`} style={{ width: `${Math.max(pct, 1)}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Score Distribution — admin */}
             {stats.scoreDistribution && (

@@ -8,9 +8,11 @@ export default function InteractionsPage() {
   const { user } = useAuth();
   const [interactions, setInteractions] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [attendees, setAttendees] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [newNote, setNewNote] = useState('');
   const [search, setSearch] = useState('');
+  const [attendeeSearch, setAttendeeSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -31,9 +33,14 @@ export default function InteractionsPage() {
 
   const fetchData = async () => {
     try {
-      const [intRes, custRes] = await Promise.all([
+      const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
+      const attendeeUrl = event
+        ? `/api/leads?scope=attended&event_id=${event.id}`
+        : `/api/leads?scope=attended`;
+      const [intRes, custRes, attRes] = await Promise.all([
         fetch('/api/interactions', { headers }),
         fetch('/api/leads', { headers }),
+        fetch(attendeeUrl, { headers }),
       ]);
       if (intRes.ok) {
         const data = await intRes.json();
@@ -42,6 +49,10 @@ export default function InteractionsPage() {
       if (custRes.ok) {
         const data = await custRes.json();
         setCustomers(data.customers || []);
+      }
+      if (attRes.ok) {
+        const data = await attRes.json();
+        setAttendees(data.customers || []);
       }
     } catch (err) { console.error(err); }
     setLoading(false);
@@ -246,6 +257,15 @@ export default function InteractionsPage() {
     });
   }, [customersWithCounts, search]);
 
+  const sortedAttendees = useMemo(() => {
+    const filtered = attendees
+      .map(a => ({ ...a, interactionCount: interactionIndex[a.id] || 0 }))
+      .filter(a =>
+        !attendeeSearch || [a.full_name, a.company_name, a.email, a.title].some(f => f?.toLowerCase().includes(attendeeSearch.toLowerCase()))
+      );
+    return filtered.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  }, [attendees, interactionIndex, attendeeSearch]);
+
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
@@ -253,20 +273,23 @@ export default function InteractionsPage() {
           {isManager ? 'Interactions' : 'My Interactions'}
         </h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Customer List Panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* My Customers Panel */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+                <h3 className="text-xs font-semibold text-gray-600 uppercase">My Customers ({sortedCustomers.length})</h3>
+              </div>
               <div className="p-3 border-b border-gray-200">
                 <input
                   type="text"
-                  placeholder="Search customers..."
+                  placeholder="Search my customers..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+              <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
                 {loading ? (
                   <p className="p-4 text-center text-gray-400 text-sm">Loading...</p>
                 ) : sortedCustomers.length === 0 ? (
@@ -302,6 +325,55 @@ export default function InteractionsPage() {
                           {c.status === 'approved' ? 'Approved to Invite' : c.status}
                         </span>
                       )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* At Event (Attended) Panel */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-3 py-2 border-b border-gray-200 bg-green-50">
+                <h3 className="text-xs font-semibold text-green-700 uppercase">At Event ({sortedAttendees.length})</h3>
+                <p className="text-[10px] text-green-600 mt-0.5">Checked-in attendees — log notes for anyone</p>
+              </div>
+              <div className="p-3 border-b border-gray-200">
+                <input
+                  type="text"
+                  placeholder="Search attendees..."
+                  value={attendeeSearch}
+                  onChange={(e) => setAttendeeSearch(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+                {loading ? (
+                  <p className="p-4 text-center text-gray-400 text-sm">Loading...</p>
+                ) : sortedAttendees.length === 0 ? (
+                  <p className="p-4 text-center text-gray-400 text-sm">No attendees checked in yet</p>
+                ) : sortedAttendees.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCustomer(c)}
+                    className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                      selectedCustomer?.id === c.id ? 'bg-green-50 border-l-2 border-l-green-600' : ''
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-gray-900 truncate">{c.full_name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {c.title && <p className="text-xs text-gray-500 truncate">{c.title}</p>}
+                      {c.title && c.company_name && <span className="text-xs text-gray-300">·</span>}
+                      {c.company_name && <p className="text-xs text-gray-500 truncate">{c.company_name}</p>}
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      {c.interactionCount > 0 ? (
+                        <span className="text-xs text-indigo-600 font-medium">{c.interactionCount} note{c.interactionCount !== 1 ? 's' : ''}</span>
+                      ) : (
+                        <span className="text-xs text-gray-300">No interactions</span>
+                      )}
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">attended</span>
                     </div>
                   </button>
                 ))}

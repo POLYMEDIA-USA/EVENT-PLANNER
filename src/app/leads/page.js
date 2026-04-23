@@ -208,6 +208,29 @@ export default function LeadsPage() {
     fetchLeads();
   };
 
+  const bulkClaim = async () => {
+    if (selectedIds.size === 0) return;
+    const claimable = customers.filter(c => selectedIds.has(c.id) && !c.assigned_rep_id);
+    if (claimable.length === 0) {
+      alert('No unassigned leads selected. You can only claim leads that have no rep assigned.');
+      return;
+    }
+    setBulkProcessing(true);
+    for (const c of claimable) {
+      await fetch('/api/leads', {
+        method: 'PUT', headers, body: JSON.stringify({
+          id: c.id,
+          assigned_rep_id: user.id,
+          assigned_rep_name: user.full_name,
+          assigned_rep_org: user.organization_name,
+        }),
+      });
+    }
+    setSelectedIds(new Set());
+    setBulkProcessing(false);
+    fetchLeads();
+  };
+
   const bulkDelete = async () => {
     if (selectedIds.size === 0) return;
     if (!confirm(`Delete ${selectedIds.size} selected lead(s)?`)) return;
@@ -450,21 +473,28 @@ export default function LeadsPage() {
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <select value={bulkRepId} onChange={(e) => setBulkRepId(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded-lg text-xs">
-                <option value="">Assign Rep...</option>
-                {allUsers.map(u => (
-                  <option key={u.id} value={u.id}>{u.full_name}</option>
-                ))}
-              </select>
-              {bulkRepId && (
-                <button onClick={bulkAssignRep} disabled={bulkProcessing}
-                  className="px-3 py-1 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                  Apply
-                </button>
-              )}
-            </div>
+            {user?.role === 'sales_rep' ? (
+              <button onClick={bulkClaim} disabled={bulkProcessing}
+                className="px-3 py-1 bg-teal-600 text-white text-xs rounded-lg hover:bg-teal-700 disabled:opacity-50">
+                Claim Selected
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <select value={bulkRepId} onChange={(e) => setBulkRepId(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded-lg text-xs">
+                  <option value="">Assign Rep...</option>
+                  {allUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.full_name}</option>
+                  ))}
+                </select>
+                {bulkRepId && (
+                  <button onClick={bulkAssignRep} disabled={bulkProcessing}
+                    className="px-3 py-1 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                    Apply
+                  </button>
+                )}
+              </div>
+            )}
             <button onClick={bulkDelete} disabled={bulkProcessing}
               className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 disabled:opacity-50">
               Delete Selected

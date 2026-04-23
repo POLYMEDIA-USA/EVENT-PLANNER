@@ -31,8 +31,32 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get('event_id');
+    const scope = searchParams.get('scope');
 
     let customers = await getCustomers();
+
+    // scope=attended: return ALL attended customers regardless of role
+    // (used by Interactions page so any user can log interactions with any attendee)
+    if (scope === 'attended') {
+      customers = customers.filter(c => c.status === 'attended');
+      if (eventId) {
+        const assignments = await getEventAssignments();
+        const eventCustomerIds = assignments.filter(a => a.event_id === eventId).map(a => a.customer_id);
+        customers = customers.filter(c => eventCustomerIds.includes(c.id));
+      }
+      return Response.json({ customers });
+    }
+
+    // scope=event: return ALL customers at the event regardless of role
+    // (used by Check-In Live dashboard so every user sees shared event progress)
+    if (scope === 'event') {
+      if (eventId) {
+        const assignments = await getEventAssignments();
+        const eventCustomerIds = assignments.filter(a => a.event_id === eventId).map(a => a.customer_id);
+        customers = customers.filter(c => eventCustomerIds.includes(c.id));
+      }
+      return Response.json({ customers });
+    }
 
     // Visibility rules:
     // Admin: sees ALL leads
@@ -41,7 +65,8 @@ export async function GET(request) {
     if (user.role === 'sales_rep') {
       customers = customers.filter(c =>
         c.assigned_rep_id === user.id ||
-        c.added_by_user_id === user.id
+        c.added_by_user_id === user.id ||
+        !c.assigned_rep_id
       );
     } else if (user.role === 'supervisor') {
       customers = customers.filter(c =>
@@ -167,7 +192,10 @@ export async function PUT(request) {
     // Sales rep: can edit leads assigned to them or created by them
     const lead = customers[idx];
     if (user.role === 'sales_rep') {
-      if (lead.assigned_rep_id !== user.id && lead.added_by_user_id !== user.id) {
+      const isOwn = lead.assigned_rep_id === user.id || lead.added_by_user_id === user.id;
+      // Allow claim: rep can self-assign an unassigned lead (only setting assigned_rep_id to themselves)
+      const isClaimingUnassigned = !lead.assigned_rep_id && updates.assigned_rep_id === user.id;
+      if (!isOwn && !isClaimingUnassigned) {
         return Response.json({ error: 'Forbidden' }, { status: 403 });
       }
     } else if (user.role === 'supervisor') {

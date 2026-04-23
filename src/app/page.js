@@ -11,6 +11,10 @@ export default function LoginPage() {
   const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', organization_name: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   useEffect(() => {
     if (user) router.push('/dashboard');
@@ -145,6 +149,15 @@ export default function LoginPage() {
               />
             </div>
 
+            {mode === 'login' && (
+              <div className="text-right">
+                <button type="button" onClick={() => { setForgotMode(true); setError(''); setForgotMessage(''); }}
+                  className="text-xs text-indigo-600 hover:text-indigo-700">
+                  Forgot Password?
+                </button>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -153,6 +166,53 @@ export default function LoginPage() {
               {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
           </form>
+
+          {/* Forgot Password Panel */}
+          {forgotMode && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-2">Reset your password</p>
+              {forgotMessage && (
+                <div className="mb-3 p-3 bg-green-50 text-green-700 text-sm rounded-lg">{forgotMessage}</div>
+              )}
+              {!forgotMessage && (
+                <div className="space-y-3">
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="Enter your email address"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!forgotEmail) return;
+                      setForgotLoading(true);
+                      try {
+                        const res = await fetch('/api/auth/forgot-password', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: forgotEmail }),
+                        });
+                        const data = await res.json();
+                        setForgotMessage(data.message || data.error);
+                      } catch {
+                        setForgotMessage('Connection error. Please try again.');
+                      }
+                      setForgotLoading(false);
+                    }}
+                    disabled={forgotLoading || !forgotEmail}
+                    className="w-full py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </div>
+              )}
+              <button onClick={() => { setForgotMode(false); setForgotMessage(''); setForgotEmail(''); }}
+                className="mt-2 text-xs text-gray-500 hover:text-gray-700">
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

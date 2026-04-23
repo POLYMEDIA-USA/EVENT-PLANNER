@@ -30,6 +30,9 @@ export default function InvitedPage() {
   const [pageSize, setPageSize] = useState(50);
   const [sortCol, setSortCol] = useState('');
   const [sortAsc, setSortAsc] = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [previewEmail, setPreviewEmail] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -64,6 +67,24 @@ export default function InvitedPage() {
     return emailLogs.filter(e => e.customer_id === customerId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   };
 
+  // Open the most recent email of a given type for a customer
+  const openEmailPreview = async (customerId, type) => {
+    const match = emailLogs
+      .filter(e => e.customer_id === customerId && e.type === type && e.status === 'sent')
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+    if (!match) return;
+    setPreviewLoading(true);
+    setPreviewEmail({ ...match, html_body: '' }); // show header immediately
+    try {
+      const res = await fetch(`/api/email/log?email_id=${match.id}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewEmail(data.email);
+      }
+    } catch (err) { console.error(err); }
+    setPreviewLoading(false);
+  };
+
   // Get email types sent to a customer
   const getEmailTypesSent = (customerId) => {
     const logs = emailLogs.filter(e => e.customer_id === customerId && e.status === 'sent');
@@ -96,17 +117,19 @@ export default function InvitedPage() {
     if (tab === 'promote') {
       setSelected(selected.size === leads.length ? new Set() : new Set(leads.map(l => l.id)));
     } else {
-      setSelected(selected.size === invited.length ? new Set() : new Set(invited.map(c => c.id)));
+      const pool = filteredInvited;
+      const allSelected = pool.length > 0 && pool.every(c => selected.has(c.id));
+      setSelected(allSelected ? new Set() : new Set(pool.map(c => c.id)));
     }
   };
 
   const selectByStatus = (status) => {
-    const matching = invited.filter(c => c.status === status).map(c => c.id);
+    const matching = filteredInvited.filter(c => c.status === status).map(c => c.id);
     setSelected(new Set(matching));
   };
 
   const selectNotSentType = (type) => {
-    const notSent = invited.filter(c => {
+    const notSent = filteredInvited.filter(c => {
       const types = getEmailTypesSent(c.id);
       return !types[type];
     }).map(c => c.id);
@@ -182,9 +205,20 @@ export default function InvitedPage() {
   };
   const sortArrow = (col) => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
 
+  const filteredInvited = useMemo(() => {
+    if (!searchText.trim()) return invited;
+    const q = searchText.toLowerCase().trim();
+    return invited.filter(c =>
+      (c.full_name || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.company_name || '').toLowerCase().includes(q) ||
+      (c.organization_name || '').toLowerCase().includes(q)
+    );
+  }, [invited, searchText]);
+
   const sortedInvited = useMemo(() => {
-    if (!sortCol) return invited;
-    return [...invited].sort((a, b) => {
+    if (!sortCol) return filteredInvited;
+    return [...filteredInvited].sort((a, b) => {
       const fieldMap = { name: 'full_name', email: 'email', org: 'organization_name', status: 'status' };
       const field = fieldMap[sortCol] || sortCol;
       const va = (a[field] || '').toLowerCase(), vb = (b[field] || '').toLowerCase();
@@ -192,7 +226,7 @@ export default function InvitedPage() {
       if (va > vb) return sortAsc ? 1 : -1;
       return 0;
     });
-  }, [invited, sortCol, sortAsc]);
+  }, [filteredInvited, sortCol, sortAsc]);
 
   const emailTypeBadgeColors = {
     invitation: 'bg-blue-100 text-blue-700',
@@ -311,7 +345,7 @@ export default function InvitedPage() {
                   <div className="flex flex-wrap gap-1">
                     <button onClick={selectAll}
                       className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">
-                      {selected.size === invited.length ? 'Deselect All' : 'Select All'}
+                      {filteredInvited.length > 0 && filteredInvited.every(c => selected.has(c.id)) ? 'Deselect All' : 'Select All'}
                     </button>
                     <button onClick={() => selectByStatus('invited')}
                       className="px-2 py-1 text-xs bg-amber-50 text-amber-700 rounded hover:bg-amber-100">
@@ -400,6 +434,30 @@ export default function InvitedPage() {
               )}
             </div>}
 
+            {/* Search */}
+            <div className="mb-4 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => { setSearchText(e.target.value); setPage(1); }}
+                placeholder="Search by name, email, or org..."
+                className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              />
+              {searchText && (
+                <button onClick={() => { setSearchText(''); setPage(1); }}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
             {/* Invited Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               {/* Desktop Table */}
@@ -408,7 +466,7 @@ export default function InvitedPage() {
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       {canManage && <th className="px-4 py-3 text-left w-10">
-                        <input type="checkbox" checked={selected.size === invited.length && invited.length > 0}
+                        <input type="checkbox" checked={filteredInvited.length > 0 && filteredInvited.every(c => selected.has(c.id))}
                           onChange={selectAll} className="rounded border-gray-300" />
                       </th>}
                       <th onClick={() => handleSort('name')} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Name{sortArrow('name')}</th>
@@ -449,10 +507,11 @@ export default function InvitedPage() {
                             ) : (
                               <div className="flex flex-wrap gap-1">
                                 {Object.entries(typesSent).map(([type, date]) => (
-                                  <span key={type} className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}
-                                    title={`Sent: ${new Date(date).toLocaleString()}`}>
+                                  <button key={type} onClick={(e) => { e.stopPropagation(); openEmailPreview(c.id, type); }}
+                                    className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium hover:ring-2 hover:ring-indigo-300 transition ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}
+                                    title={`Click to view · Sent ${new Date(date).toLocaleString()}`}>
                                     {type.replace('_', ' ')}
-                                  </span>
+                                  </button>
                                 ))}
                                 <span className="text-[10px] text-gray-400 ml-1" title="Total emails sent">
                                   ({history.length})
@@ -476,9 +535,9 @@ export default function InvitedPage() {
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {canManage && <div className="px-4 py-2 bg-gray-50 flex items-center gap-2">
-                      <input type="checkbox" checked={selected.size === invited.length && invited.length > 0}
+                      <input type="checkbox" checked={filteredInvited.length > 0 && filteredInvited.every(c => selected.has(c.id))}
                         onChange={selectAll} className="rounded border-gray-300" />
-                      <span className="text-xs text-gray-500">Select all</span>
+                      <span className="text-xs text-gray-500">Select all{searchText ? ` (${filteredInvited.length} filtered)` : ''}</span>
                     </div>}
                     {paginate(sortedInvited, page, pageSize).map(c => {
                       const typesSent = getEmailTypesSent(c.id);
@@ -501,9 +560,10 @@ export default function InvitedPage() {
                             {Object.keys(typesSent).length > 0 && (
                               <div className="flex flex-wrap gap-1 pt-0.5" onClick={(e) => e.stopPropagation()}>
                                 {Object.entries(typesSent).map(([type, date]) => (
-                                  <span key={type} className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}>
+                                  <button key={type} onClick={(e) => { e.stopPropagation(); openEmailPreview(c.id, type); }}
+                                    className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium active:ring-2 active:ring-indigo-300 transition ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}>
                                     {type.replace('_', ' ')}
-                                  </span>
+                                  </button>
                                 ))}
                                 <span className="text-[10px] text-gray-400">({history.length})</span>
                               </div>
@@ -519,6 +579,52 @@ export default function InvitedPage() {
                 onPageChange={setPage} onPageSizeChange={setPageSize} />
             </div>
           </>
+        )}
+
+        {/* Email Preview Modal */}
+        {previewEmail && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setPreviewEmail(null)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-3 border-b border-gray-200 bg-gray-50 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold text-gray-900 truncate">{previewEmail.subject}</h3>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-1">
+                    <div><span className="text-gray-400">From:</span> {previewEmail.from}</div>
+                    <div><span className="text-gray-400">To:</span> {previewEmail.to}</div>
+                    <div><span className="text-gray-400">Type:</span> {previewEmail.type?.replace('_', ' ')}</div>
+                    <div><span className="text-gray-400">Sent:</span> {new Date(previewEmail.created_at).toLocaleString()}</div>
+                  </div>
+                </div>
+                <button onClick={() => setPreviewEmail(null)}
+                  className="text-gray-400 hover:text-gray-700 text-xl leading-none shrink-0">
+                  ✕
+                </button>
+              </div>
+              <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 text-center">
+                Preview only — links and buttons in this email are disabled.
+              </div>
+              <div className="flex-1 overflow-y-auto p-5 bg-gray-100">
+                {previewLoading ? (
+                  <p className="text-center text-gray-400 text-sm py-12">Loading email…</p>
+                ) : previewEmail.html_body ? (
+                  <div className="email-preview-inert mx-auto bg-white border border-gray-300 shadow-sm rounded-lg p-6" style={{ maxWidth: '650px' }}>
+                    <div dangerouslySetInnerHTML={{ __html: previewEmail.html_body }} />
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400 text-sm py-12">No body content</p>
+                )}
+              </div>
+              <style jsx>{`
+                .email-preview-inert :global(a),
+                .email-preview-inert :global(button),
+                .email-preview-inert :global(input),
+                .email-preview-inert :global(form) {
+                  pointer-events: none !important;
+                  cursor: default !important;
+                }
+              `}</style>
+            </div>
+          </div>
         )}
       </div>
     </AppShell>

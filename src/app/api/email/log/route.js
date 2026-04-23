@@ -1,6 +1,19 @@
 export const dynamic = 'force-dynamic';
 
-import { getUsers, getEmailLogs } from '@/lib/gcs';
+import { getUsers, getEmailLogs, getCustomers } from '@/lib/gcs';
+
+function normalizeOrg(name) {
+  if (!name) return '';
+  return name.toLowerCase().trim().replace(/\s+/g, ' ')
+    .replace(/\binc\.?\b/g, '').replace(/\bcorp\.?\b/g, '')
+    .replace(/\bllc\.?\b/g, '').replace(/\bltd\.?\b/g, '')
+    .replace(/\bco\.?\b/g, '').replace(/[.,]/g, '').trim();
+}
+function orgMatches(a, b) {
+  const x = normalizeOrg(a), y = normalizeOrg(b);
+  if (!x || !y) return false;
+  return x === y || x.includes(y) || y.includes(x);
+}
 
 async function authenticate(request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -13,24 +26,46 @@ export async function GET(request) {
   try {
     const user = await authenticate(request);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin' && user.role !== 'supervisor') return Response.json({ error: 'Admin/Supervisor only' }, { status: 403 });
-
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customer_id');
     const emailId = searchParams.get('email_id');
 
     let logs = await getEmailLogs();
 
+    // Build the set of customer IDs this user is allowed to see email for
+    let visibleCustomerIds = null; // null = no restriction (admin)
+    if (user.role === 'supervisor' || user.role === 'sales_rep') {
+      const customers = await getCustomers();
+      const visible = customers.filter(c => {
+        if (user.role === 'sales_rep') {
+          return c.assigned_rep_id === user.id || c.added_by_user_id === user.id;
+        }
+        // supervisor: org match or unassigned
+        return !c.assigned_rep_id ||
+          c.organization_id === user.organization_id ||
+          orgMatches(c.assigned_rep_org, user.organization_name);
+      });
+      visibleCustomerIds = new Set(visible.map(c => c.id));
+    }
+
     // Return single email by ID (for PDF viewer)
     if (emailId) {
       const email = logs.find(e => e.id === emailId);
       if (!email) return Response.json({ error: 'Email not found' }, { status: 404 });
+      if (visibleCustomerIds && !visibleCustomerIds.has(email.customer_id)) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
       return Response.json({ email });
     }
 
     // Filter by customer
     if (customerId) {
       logs = logs.filter(e => e.customer_id === customerId);
+    }
+
+    // Scope to visible customers for non-admins
+    if (visibleCustomerIds) {
+      logs = logs.filter(e => visibleCustomerIds.has(e.customer_id));
     }
 
     // Sort newest first, strip html_body for list view

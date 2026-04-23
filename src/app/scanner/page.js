@@ -17,7 +17,12 @@ export default function ScannerPage() {
   const [nameSearch, setNameSearch] = useState('');
   const [attendees, setAttendees] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({ first_name: '', last_name: '', organization: '', email: '' });
+  const [addSubmitting, setAddSubmitting] = useState(false);
   const scanIntervalRef = useRef(null);
+
+  const isAdmin = user?.role === 'admin';
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -175,6 +180,56 @@ export default function ScannerPage() {
     setError('');
   };
 
+  const submitAddAttendee = async (e) => {
+    e.preventDefault();
+    const first = addForm.first_name.trim();
+    const last = addForm.last_name.trim();
+    const email = addForm.email.trim();
+    const org = addForm.organization.trim();
+    if (!first || !email) return;
+    setAddSubmitting(true);
+    try {
+      const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
+      const leadRes = await fetch('/api/leads', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          full_name: `${first} ${last}`.trim(),
+          company_name: org,
+          email,
+          source: 'Walk-in',
+          ...(event?.id ? { event_id: event.id } : {}),
+        }),
+      });
+      if (!leadRes.ok) {
+        const err = await leadRes.json();
+        throw new Error(err.error || 'Failed to create lead');
+      }
+      const { customer } = await leadRes.json();
+
+      const intRes = await fetch('/api/interactions', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          customer_id: customer.id,
+          interaction_type: 'qr_scan',
+          event_id: event?.id || '',
+          notes: 'Walk-in — added at event and checked in',
+        }),
+      });
+      if (!intRes.ok) {
+        const err = await intRes.json();
+        throw new Error(err.error || 'Lead created but check-in failed');
+      }
+      const iData = await intRes.json();
+
+      setResult({ success: true, interaction: iData.interaction, customer: iData.customer || { ...customer, status: 'attended' } });
+      setAddForm({ first_name: '', last_name: '', organization: '', email: '' });
+      setShowAddForm(false);
+    } catch (err) {
+      setResult({ success: false, error: err.message });
+    }
+    setAddSubmitting(false);
+  };
+
   return (
     <AppShell>
       <div className="max-w-2xl mx-auto">
@@ -280,6 +335,64 @@ export default function ScannerPage() {
                   </div>
                 )}
               </div>
+
+              {/* Last-Moment Adds — admin only */}
+              {isAdmin && (
+                <div className="border-t-2 border-dashed border-indigo-200 pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-sm font-medium text-indigo-700">Last-Moment Adds</p>
+                      <p className="text-xs text-gray-400">Walk-in attendees — creates a lead and checks them in instantly.</p>
+                    </div>
+                    {!showAddForm && (
+                      <button onClick={() => setShowAddForm(true)}
+                        className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
+                        + Add Attendee
+                      </button>
+                    )}
+                  </div>
+                  {showAddForm && (
+                    <form onSubmit={submitAddAttendee} className="mt-3 p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">First Name *</label>
+                          <input type="text" required value={addForm.first_name}
+                            onChange={(e) => setAddForm({ ...addForm, first_name: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Last Name</label>
+                          <input type="text" value={addForm.last_name}
+                            onChange={(e) => setAddForm({ ...addForm, last_name: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Organization / Company</label>
+                        <input type="text" value={addForm.organization}
+                          onChange={(e) => setAddForm({ ...addForm, organization: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
+                        <input type="email" required value={addForm.email}
+                          onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button type="submit" disabled={addSubmitting || !addForm.first_name.trim() || !addForm.email.trim()}
+                          className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                          {addSubmitting ? 'Adding...' : 'Add & Check In'}
+                        </button>
+                        <button type="button" onClick={() => { setShowAddForm(false); setAddForm({ first_name: '', last_name: '', organization: '', email: '' }); }}
+                          className="px-4 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200">
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
