@@ -1,19 +1,30 @@
 # Session State
 
 ## Current Version
-- Version: **0.9.2** (tagged `v0.9.2` at commit `da5ab48`)
+- Version: **0.10.0** (tagged `v0.10.0` at commit `2fc9f5e`)
 - Branch: `main`, pushed to `origin/main`
 - Last session: 2026-04-23
 
 ## Deployed To
 - Cloud Run `corpmarketer` / project `corpmarketer-app` / region `us-central1`
-- Revision: `corpmarketer-00052-gw2`, 100% traffic
+- Revision: `corpmarketer-00054-56g`, 100% traffic
 - Live URL: https://corpmarketer-678407058536.us-central1.run.app
 
-## Recent Patch Releases
-- **v0.9.2** (`da5ab48`) — Approved-to-Invite now sends the invitation email directly; "Prepare RSVP Tokens" button removed. Backend already auto-generated tokens and flipped status on send, so the two-step UX was friction.
-- **v0.9.1** (`5aa0a27`) — Reports org rollup fix: per-company stats now count leads assigned to supervisors (not just sales reps). `buildOrgTree` attaches leads to supervisors too; unassigned fallback filter simplified to "not attached to any org member." Supervisor rows in the UI now show lead count and expand to show their directly-assigned leads.
-- **v0.9.0** (`00222d4`) — Major feature drop: password reset, role-wide dashboard/reports, walk-in check-ins, inert email preview, two-column Interactions, sales-rep self-claim.
+## Recent Releases
+- **v0.10.0** (`2fc9f5e`) — Team Attendance feature. New `user_event_attendance.json` data file. Full flow: invite users to work an event, send email or SMS RSVP links, auto-mint QR codes on confirmation, scan at the event to flip status → present. Integrated into Scanner (shared QR namespace), Reports (new Team tab), Sidebar (Team link). Also added manual status override, per-row resend confirmation, name-search, and Vonage SMS path. Ships as a **minor** release because it's new feature surface.
+- **v0.9.3** (`2350dfd`) — QR auto-gen for manually-accepted leads + per-row Resend Confirmation button.
+- **v0.9.2** (`da5ab48`) — Approved-to-Invite now sends invitation email directly (token auto-generated).
+- **v0.9.1** (`5aa0a27`) — Reports org rollup counts supervisor-assigned leads.
+- **v0.9.0** (`00222d4`) — Password reset, role-wide dashboard/reports, walk-in check-ins, inert email preview, two-column Interactions, sales-rep self-claim.
+
+## Team Attendance quick reference
+- Data: `user_event_attendance.json` in GCS. Keyed by `(user_id, event_id)`.
+- Statuses: `pending` → `invited` → `confirmed` / `declined` → `present`.
+- QR codes live in a shared namespace with customer codes — `generateUniqueQRCode` in `src/lib/auth.js` accepts multiple lists.
+- Scanner lookup order: customers first, then team attendance. Team scans return `kind='team'` from `/api/interactions` POST.
+- SMS invites use existing Vonage config (`vonage_api_key`/`vonage_api_secret`/`vonage_from_number` in settings).
+- New API routes under `/api/team/*`: `attendance`, `rsvp` (public), `send` (email), `sms`.
+- Public RSVP page: `/team-rsvp?token=...` (Suspense-wrapped, POST-confirm pattern).
 
 ## What Was Done Last Session (v0.9.0 shipped)
 

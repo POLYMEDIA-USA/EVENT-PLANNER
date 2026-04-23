@@ -18,7 +18,9 @@
 
 ## Verified Baselines (immutable — don't second-guess)
 
-- **v0.9.2** — current production state (revision `corpmarketer-00052-gw2`, 100% traffic). Approved-to-Invite now sends invitation email directly (token auto-generated).
+- **v0.10.0** — current production state (revision `corpmarketer-00054-56g`, 100% traffic). Team Attendance feature: full flow to invite/confirm/check-in staff per event. New `user_event_attendance.json`, shared QR namespace with leads, SMS RSVP via Vonage, Reports → Team tab.
+- **v0.9.3** — QR auto-gen for manually-accepted leads + resend-confirmation.
+- **v0.9.2** — Approved-to-Invite sends invitation email directly (token auto-generated).
 - **v0.9.1** — Reports org rollup counts supervisor-assigned leads (previously missed them).
 - **v0.9.0** — Password reset, role-wide dashboard/reports, walk-in check-ins, inert email preview, two-column Interactions, sales-rep self-claim. `/api/auth/forgot-password` verified live.
 - **v0.8.2** — mobile viewport fix verified on iPhone.
