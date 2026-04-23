@@ -1,7 +1,7 @@
 # FunnelFlow - Technical Manual
 
-**App Version:** 0.9.0
-**Last Updated:** 2026-04-22
+**App Version:** 0.9.1
+**Last Updated:** 2026-04-23
 
 ---
 

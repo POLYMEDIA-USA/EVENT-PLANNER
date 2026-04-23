@@ -165,35 +165,40 @@ export default function ReportsPage() {
       if (u.role === 'sales_rep') orgMap[key].reps.push(u);
     });
 
-    // Attach leads to reps and compute stats
+    // Attach leads to reps AND supervisors, then roll up org stats
     Object.values(orgMap).forEach(org => {
       org.stats = { total: 0, approved: 0, invited: 0, accepted: 0, declined: 0, attended: 0, interactions: 0 };
       org.unassignedLeads = [];
-      org.reps.forEach(rep => {
-        rep.leads = customers.filter(c => c.assigned_rep_id === rep.id);
-        rep.interactionCount = interactions.filter(i => rep.leads.some(l => l.id === i.customer_id)).length;
-        rep.leads.forEach(l => {
-          org.stats.total++;
-          if (l.status === 'approved') org.stats.approved++;
-          if (l.status === 'invited') org.stats.invited++;
-          if (l.status === 'accepted') org.stats.accepted++;
-          if (l.status === 'declined') org.stats.declined++;
-          if (l.status === 'attended') org.stats.attended++;
-        });
-        org.stats.interactions += rep.interactionCount;
-      });
-      // Leads assigned to supervisors or unassigned but in this org
-      const repIds = new Set(org.reps.map(r => r.id));
-      const orgLeads = customers.filter(c => norm(c.organization_name) === norm(org.name) || norm(c.assigned_rep_org) === norm(org.name));
-      org.unassignedLeads = orgLeads.filter(l => !l.assigned_rep_id || (!repIds.has(l.assigned_rep_id) && org.supervisors.some(s => s.id === l.added_by_user_id)));
-      org.unassignedLeads.forEach(l => {
+
+      const bumpStats = (l) => {
         org.stats.total++;
         if (l.status === 'approved') org.stats.approved++;
         if (l.status === 'invited') org.stats.invited++;
         if (l.status === 'accepted') org.stats.accepted++;
         if (l.status === 'declined') org.stats.declined++;
         if (l.status === 'attended') org.stats.attended++;
+      };
+
+      org.reps.forEach(rep => {
+        rep.leads = customers.filter(c => c.assigned_rep_id === rep.id);
+        rep.interactionCount = interactions.filter(i => rep.leads.some(l => l.id === i.customer_id)).length;
+        rep.leads.forEach(bumpStats);
+        org.stats.interactions += rep.interactionCount;
       });
+
+      // Supervisors can have leads assigned directly to them — count those too
+      org.supervisors.forEach(sup => {
+        sup.leads = customers.filter(c => c.assigned_rep_id === sup.id);
+        sup.interactionCount = interactions.filter(i => sup.leads.some(l => l.id === i.customer_id)).length;
+        sup.leads.forEach(bumpStats);
+        org.stats.interactions += sup.interactionCount;
+      });
+
+      // Remaining org leads that aren't attached to any rep or supervisor of this org
+      const memberIds = new Set([...org.reps.map(r => r.id), ...org.supervisors.map(s => s.id)]);
+      const orgLeads = customers.filter(c => norm(c.organization_name) === norm(org.name) || norm(c.assigned_rep_org) === norm(org.name));
+      org.unassignedLeads = orgLeads.filter(l => !l.assigned_rep_id || !memberIds.has(l.assigned_rep_id));
+      org.unassignedLeads.forEach(bumpStats);
     });
 
     return Object.values(orgMap).sort((a, b) => a.name.localeCompare(b.name));
@@ -274,16 +279,46 @@ export default function ReportsPage() {
                           <div key={sup.id} className="border-b border-gray-100">
                             <div className="px-8 py-3 bg-amber-50 flex items-center justify-between cursor-pointer hover:bg-amber-100"
                               onClick={() => setExpandedSup(expandedSup === sup.id ? null : sup.id)}>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium bg-amber-100 text-amber-700">Supervisor</span>
                                 <span className="text-sm font-medium text-gray-800">{sup.full_name}</span>
                                 <span className="text-xs text-gray-400">{sup.email}</span>
                               </div>
-                              <span className="text-xs text-gray-400">{expandedSup === sup.id ? '▼' : '▶'}</span>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <span className="text-xs text-gray-500">{(sup.leads || []).length} lead{(sup.leads || []).length !== 1 ? 's' : ''} · {sup.interactionCount || 0} interactions</span>
+                                <span className="text-xs text-gray-400">{expandedSup === sup.id ? '▼' : '▶'}</span>
+                              </div>
                             </div>
-                            {/* Reps under this supervisor (same org) */}
+                            {/* Supervisor's own leads + reps under this supervisor (same org) */}
                             {expandedSup === sup.id && (
                               <div className="bg-gray-50">
+                                {(sup.leads || []).length > 0 && (
+                                  <div className="px-12 py-2 bg-white border-t border-gray-100">
+                                    <p className="text-xs font-medium text-amber-700 mb-1">Leads assigned directly to {sup.full_name}</p>
+                                    <table className="w-full">
+                                      <thead><tr>
+                                        <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Lead</th>
+                                        <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Company</th>
+                                        <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Status</th>
+                                        <th className="text-left px-2 py-1 text-xs font-medium text-gray-400">Score</th>
+                                      </tr></thead>
+                                      <tbody>
+                                        {sup.leads.map(l => (
+                                          <tr key={l.id} className="border-t border-gray-100">
+                                            <td className="px-2 py-1 text-sm text-gray-700">{l.full_name}</td>
+                                            <td className="px-2 py-1 text-sm text-gray-500">{l.company_name || '-'}</td>
+                                            <td className="px-2 py-1">
+                                              <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[l.status] || 'bg-gray-100'}`}>{l.status === 'approved' ? 'Approved to Invite' : l.status}</span>
+                                            </td>
+                                            <td className="px-2 py-1">
+                                              <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-bold ${l.lead_score_label === 'hot' ? 'bg-red-100 text-red-700' : l.lead_score_label === 'warm' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{l.lead_score || 0}</span>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
                                 {org.reps.length === 0 ? (
                                   <p className="px-12 py-3 text-sm text-gray-400 italic">No sales reps in this organization</p>
                                 ) : org.reps.map(rep => {
