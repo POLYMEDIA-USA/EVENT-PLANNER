@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { getUsers, getCustomers, saveCustomers, getEvents, getSettings, getEmailLogs, saveEmailLogs } from '@/lib/gcs';
-import { generateRSVPToken } from '@/lib/auth';
+import { generateRSVPToken, generateUniqueQRCode } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 
@@ -185,6 +185,13 @@ export async function POST(request) {
       // Ensure RSVP token exists
       if (!customer.rsvp_token) {
         customer.rsvp_token = generateRSVPToken();
+        customers[idx] = customer;
+      }
+
+      // Confirmation emails embed a QR check-in code. If this lead was accepted
+      // manually (rather than via the RSVP flow), no code was minted yet — back-fill it here.
+      if (email_type === 'confirmation' && !customer.qr_code_data) {
+        customer.qr_code_data = generateUniqueQRCode(customers);
         customers[idx] = customer;
       }
 

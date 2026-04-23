@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { getUsers, getCustomers, saveCustomers, getEventAssignments, saveEventAssignments, getInteractions, getEmailLogs } from '@/lib/gcs';
+import { generateRSVPToken, generateUniqueQRCode } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 async function authenticate(request) {
@@ -215,6 +216,16 @@ export async function PUT(request) {
 
     const { added_by_user_id, added_by_name, organization_id, organization_name, input_by, input_by_org, ...safeUpdates } = updates;
     customers[idx] = { ...customers[idx], ...safeUpdates, updated_at: new Date().toISOString() };
+
+    // If this PUT just flipped status to "accepted", make sure a QR check-in code exists.
+    // Normally the code is minted inside /api/rsvp when a customer clicks "I'll Attend",
+    // but admins/supervisors can also set status=accepted manually — don't leave them without a code.
+    if (safeUpdates.status === 'accepted' && !customers[idx].qr_code_data) {
+      customers[idx].qr_code_data = generateUniqueQRCode(customers);
+    }
+    if (safeUpdates.status === 'accepted' && !customers[idx].rsvp_token) {
+      customers[idx].rsvp_token = generateRSVPToken();
+    }
 
     // When a rep is assigned, update the lead's org to match the rep
     // so the sales rep can see the lead in their org-filtered view

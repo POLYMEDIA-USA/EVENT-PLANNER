@@ -161,6 +161,32 @@ export default function InvitedPage() {
     setSending(false);
   };
 
+  // Send/resend a single confirmation email to one lead (for recovering lost emails).
+  // If a confirmation was already sent, warn the admin but allow the resend.
+  const sendConfirmation = async (customer) => {
+    const types = getEmailTypesSent(customer.id);
+    const prevSent = types['confirmation'];
+    const prompt = prevSent
+      ? `${customer.full_name} already received a confirmation email on ${new Date(prevSent).toLocaleString()}.\n\nResend it now? The QR check-in code will be included.`
+      : `Send confirmation email to ${customer.full_name}? The QR check-in code will be included.`;
+    if (!confirm(prompt)) return;
+    try {
+      const res = await fetch('/api/email/send-invites', {
+        method: 'POST', headers,
+        body: JSON.stringify({ customer_ids: [customer.id], email_type: 'confirmation' }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Confirmation sent.');
+        fetchData();
+      } else {
+        alert(data.error || 'Failed to send confirmation');
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    }
+  };
+
   const sendEmails = async () => {
     if (selected.size === 0) { alert('Select at least one invitee'); return; }
     setSending(true);
@@ -516,22 +542,31 @@ export default function InvitedPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            {Object.keys(typesSent).length === 0 ? (
-                              <span className="text-xs text-gray-300">None</span>
-                            ) : (
-                              <div className="flex flex-wrap gap-1">
-                                {Object.entries(typesSent).map(([type, date]) => (
-                                  <button key={type} onClick={(e) => { e.stopPropagation(); openEmailPreview(c.id, type); }}
-                                    className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium hover:ring-2 hover:ring-indigo-300 transition ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}
-                                    title={`Click to view · Sent ${new Date(date).toLocaleString()}`}>
-                                    {type.replace('_', ' ')}
-                                  </button>
-                                ))}
-                                <span className="text-[10px] text-gray-400 ml-1" title="Total emails sent">
-                                  ({history.length})
-                                </span>
-                              </div>
-                            )}
+                            <div className="flex items-center flex-wrap gap-1">
+                              {Object.keys(typesSent).length === 0 ? (
+                                <span className="text-xs text-gray-300">None</span>
+                              ) : (
+                                <>
+                                  {Object.entries(typesSent).map(([type, date]) => (
+                                    <button key={type} onClick={(e) => { e.stopPropagation(); openEmailPreview(c.id, type); }}
+                                      className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium hover:ring-2 hover:ring-indigo-300 transition ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}
+                                      title={`Click to view · Sent ${new Date(date).toLocaleString()}`}>
+                                      {type.replace('_', ' ')}
+                                    </button>
+                                  ))}
+                                  <span className="text-[10px] text-gray-400 ml-1" title="Total emails sent">
+                                    ({history.length})
+                                  </span>
+                                </>
+                              )}
+                              {canManage && (c.status === 'accepted' || c.status === 'attended') && (
+                                <button onClick={(e) => { e.stopPropagation(); sendConfirmation(c); }}
+                                  className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded font-medium bg-green-600 text-white hover:bg-green-700"
+                                  title={typesSent['confirmation'] ? `Resend confirmation (previously sent ${new Date(typesSent['confirmation']).toLocaleString()})` : 'Send confirmation email with QR code'}>
+                                  ↻ {typesSent['confirmation'] ? 'Resend' : 'Send'} Confirm
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -571,17 +606,21 @@ export default function InvitedPage() {
                             {c.company_name && <p className="text-xs text-gray-500 truncate">{c.company_name}</p>}
                             <p className="text-xs text-gray-400 truncate">{c.email}</p>
                             {c.organization_name && <p className="text-[10px] text-gray-300">Org: {c.organization_name}</p>}
-                            {Object.keys(typesSent).length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-0.5" onClick={(e) => e.stopPropagation()}>
-                                {Object.entries(typesSent).map(([type, date]) => (
-                                  <button key={type} onClick={(e) => { e.stopPropagation(); openEmailPreview(c.id, type); }}
-                                    className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium active:ring-2 active:ring-indigo-300 transition ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}>
-                                    {type.replace('_', ' ')}
-                                  </button>
-                                ))}
-                                <span className="text-[10px] text-gray-400">({history.length})</span>
-                              </div>
-                            )}
+                            <div className="flex flex-wrap items-center gap-1 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                              {Object.entries(typesSent).map(([type, date]) => (
+                                <button key={type} onClick={(e) => { e.stopPropagation(); openEmailPreview(c.id, type); }}
+                                  className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium active:ring-2 active:ring-indigo-300 transition ${emailTypeBadgeColors[type] || 'bg-gray-100 text-gray-600'}`}>
+                                  {type.replace('_', ' ')}
+                                </button>
+                              ))}
+                              {Object.keys(typesSent).length > 0 && <span className="text-[10px] text-gray-400">({history.length})</span>}
+                              {canManage && (c.status === 'accepted' || c.status === 'attended') && (
+                                <button onClick={(e) => { e.stopPropagation(); sendConfirmation(c); }}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded font-medium bg-green-600 text-white">
+                                  ↻ {typesSent['confirmation'] ? 'Resend' : 'Send'} Confirm
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );

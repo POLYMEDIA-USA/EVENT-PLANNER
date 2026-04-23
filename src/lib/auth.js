@@ -20,6 +20,18 @@ export function generateRSVPToken() {
   return crypto.randomBytes(16).toString('base64url');
 }
 
+// 4-char check-in code using charset that avoids ambiguous glyphs (no I, O, 0, 1).
+// Pass the current customers list so we can guarantee uniqueness.
+export function generateUniqueQRCode(customers) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const existing = new Set(customers.map(c => c.qr_code_data).filter(Boolean));
+  let code;
+  do {
+    code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  } while (existing.has(code));
+  return code;
+}
+
 export async function verifyToken(token) {
   if (!token) return null;
   const { getUsers } = await import('./gcs');
