@@ -1,15 +1,19 @@
 # Session State
 
 ## Current Version
-- Version: **0.9.0** (tagged `v0.9.0` at commit `00222d4`)
+- Version: **0.9.2** (tagged `v0.9.2` at commit `da5ab48`)
 - Branch: `main`, pushed to `origin/main`
 - Last session: 2026-04-23
 
 ## Deployed To
 - Cloud Run `corpmarketer` / project `corpmarketer-app` / region `us-central1`
-- Revision: `corpmarketer-00050-xb8`, 100% traffic
+- Revision: `corpmarketer-00052-gw2`, 100% traffic
 - Live URL: https://corpmarketer-678407058536.us-central1.run.app
-- Verified: root HTTP 200, `/api/auth/me` correctly 401, `/api/auth/forgot-password` responds with the generic success message
+
+## Recent Patch Releases
+- **v0.9.2** (`da5ab48`) — Approved-to-Invite now sends the invitation email directly; "Prepare RSVP Tokens" button removed. Backend already auto-generated tokens and flipped status on send, so the two-step UX was friction.
+- **v0.9.1** (`5aa0a27`) — Reports org rollup fix: per-company stats now count leads assigned to supervisors (not just sales reps). `buildOrgTree` attaches leads to supervisors too; unassigned fallback filter simplified to "not attached to any org member." Supervisor rows in the UI now show lead count and expand to show their directly-assigned leads.
+- **v0.9.0** (`00222d4`) — Major feature drop: password reset, role-wide dashboard/reports, walk-in check-ins, inert email preview, two-column Interactions, sales-rep self-claim.
 
 ## What Was Done Last Session (v0.9.0 shipped)
 
