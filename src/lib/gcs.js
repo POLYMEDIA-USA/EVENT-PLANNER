@@ -139,4 +139,7 @@ export async function saveAuditLog(data) { return writeJSON('audit_log.json', da
 export async function getEmailTemplates() { return readJSON('email_templates.json'); }
 export async function saveEmailTemplates(data) { return writeJSON('email_templates.json', data); }
 
+export async function getTeamAttendance() { return readJSON('user_event_attendance.json'); }
+export async function saveTeamAttendance(data) { return writeJSON('user_event_attendance.json', data); }
+
 export { readJSON, writeJSON, listFiles, readText };

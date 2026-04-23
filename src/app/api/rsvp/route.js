@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
-import { getCustomers, saveCustomers, getInteractions, saveInteractions, getEventAssignments } from '@/lib/gcs';
+import { getCustomers, saveCustomers, getInteractions, saveInteractions, getEventAssignments, getTeamAttendance } from '@/lib/gcs';
+import { generateUniqueQRCode } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 // GET — no longer processes RSVP; just returns status so scanners can't trigger actions
@@ -47,12 +48,9 @@ export async function POST(request) {
     if (action === 'accept') {
       customers[idx].status = 'accepted';
       customers[idx].rsvp_responded_at = new Date().toISOString();
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      let code;
-      do {
-        code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-      } while (customers.some(c => c.qr_code_data === code));
-      customers[idx].qr_code_data = code;
+      // Mint a QR that doesn't collide with any existing customer OR team-attendance code
+      const teamAttendance = await getTeamAttendance();
+      customers[idx].qr_code_data = generateUniqueQRCode(customers, teamAttendance);
     } else if (action === 'decline') {
       customers[idx].status = 'declined';
       customers[idx].rsvp_responded_at = new Date().toISOString();

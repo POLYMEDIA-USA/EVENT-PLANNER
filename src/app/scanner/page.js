@@ -100,7 +100,11 @@ export default function ScannerPage() {
 
     if (res.ok) {
       const iData = await res.json();
-      setResult({ success: true, interaction: iData.interaction, customer: iData.customer, qr_data: data });
+      if (iData.kind === 'team') {
+        setResult({ success: true, kind: 'team', teamUser: iData.user, teamAttendance: iData.attendance, qr_data: data });
+      } else {
+        setResult({ success: true, interaction: iData.interaction, customer: iData.customer, qr_data: data });
+      }
     } else {
       const err = await res.json();
       setResult({ success: false, error: err.error });
@@ -402,35 +406,56 @@ export default function ScannerPage() {
             {result.success ? (
               <>
                 <div className="text-center mb-6">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-green-600 text-2xl font-bold">&#10003;</span>
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900">Checked In!</h2>
-                  {result.customer && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg text-left">
-                      <p className="text-lg font-semibold text-gray-900">{result.customer.full_name}</p>
-                      {result.customer.title && <p className="text-sm text-indigo-600">{result.customer.title}</p>}
-                      {result.customer.company_name && <p className="text-sm text-gray-600">{result.customer.company_name}</p>}
-                      {result.customer.organization_name && <p className="text-xs text-gray-400 mt-1">Org: {result.customer.organization_name}</p>}
-                    </div>
+                  {result.kind === 'team' ? (
+                    <>
+                      <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-indigo-600 text-2xl font-bold">&#10003;</span>
+                      </div>
+                      <h2 className="text-xl font-bold text-indigo-700">Team Member — PRESENT</h2>
+                      {result.teamUser && (
+                        <div className="mt-4 p-4 bg-indigo-50 rounded-lg text-left">
+                          <p className="text-lg font-semibold text-gray-900">{result.teamUser.full_name}</p>
+                          <p className="text-sm text-indigo-600 capitalize">{(result.teamUser.role || '').replace('_', ' ')}</p>
+                          {result.teamUser.organization_name && <p className="text-sm text-gray-600">{result.teamUser.organization_name}</p>}
+                          {result.teamUser.email && <p className="text-xs text-gray-400 mt-1">{result.teamUser.email}</p>}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-green-600 text-2xl font-bold">&#10003;</span>
+                      </div>
+                      <h2 className="text-xl font-bold text-gray-900">Checked In!</h2>
+                      {result.customer && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg text-left">
+                          <p className="text-lg font-semibold text-gray-900">{result.customer.full_name}</p>
+                          {result.customer.title && <p className="text-sm text-indigo-600">{result.customer.title}</p>}
+                          {result.customer.company_name && <p className="text-sm text-gray-600">{result.customer.company_name}</p>}
+                          {result.customer.organization_name && <p className="text-xs text-gray-400 mt-1">Org: {result.customer.organization_name}</p>}
+                        </div>
+                      )}
+                      {!result.customer && <p className="text-gray-500 mt-1">Guest has been marked as attended</p>}
+                    </>
                   )}
-                  {!result.customer && <p className="text-gray-500 mt-1">Guest has been marked as attended</p>}
                 </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Interaction Notes</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    placeholder="Add notes about this interaction..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                  <button onClick={addNotes} disabled={!notes.trim()}
-                    className="mt-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                    Save Notes
-                  </button>
-                </div>
+                {result.kind !== 'team' && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Interaction Notes</label>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Add notes about this interaction..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <button onClick={addNotes} disabled={!notes.trim()}
+                      className="mt-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                      Save Notes
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-center">

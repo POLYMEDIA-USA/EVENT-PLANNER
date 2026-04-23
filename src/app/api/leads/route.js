@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { getUsers, getCustomers, saveCustomers, getEventAssignments, saveEventAssignments, getInteractions, getEmailLogs } from '@/lib/gcs';
+import { getUsers, getCustomers, saveCustomers, getEventAssignments, saveEventAssignments, getInteractions, getEmailLogs, getTeamAttendance } from '@/lib/gcs';
 import { generateRSVPToken, generateUniqueQRCode } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -221,7 +221,8 @@ export async function PUT(request) {
     // Normally the code is minted inside /api/rsvp when a customer clicks "I'll Attend",
     // but admins/supervisors can also set status=accepted manually — don't leave them without a code.
     if (safeUpdates.status === 'accepted' && !customers[idx].qr_code_data) {
-      customers[idx].qr_code_data = generateUniqueQRCode(customers);
+      const teamAttendance = await getTeamAttendance();
+      customers[idx].qr_code_data = generateUniqueQRCode(customers, teamAttendance);
     }
     if (safeUpdates.status === 'accepted' && !customers[idx].rsvp_token) {
       customers[idx].rsvp_token = generateRSVPToken();

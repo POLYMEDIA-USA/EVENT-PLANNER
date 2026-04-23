@@ -34,6 +34,8 @@ export default function ReportsPage() {
   const [rptPageSize, setRptPageSize] = useState(50);
   const [emlPage, setEmlPage] = useState(1);
   const [emlPageSize, setEmlPageSize] = useState(50);
+  const [teamAttendance, setTeamAttendance] = useState([]);
+  const [teamLoading, setTeamLoading] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -54,6 +56,17 @@ export default function ReportsPage() {
       if (usersRes.ok) setAllUsers((await usersRes.json()).users || []);
     } catch (err) { console.error(err); }
     setLoading(false);
+  };
+
+  const fetchTeam = async () => {
+    setTeamLoading(true);
+    try {
+      const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
+      const url = event ? `/api/team/attendance?event_id=${event.id}` : '/api/team/attendance';
+      const res = await fetch(url, { headers });
+      if (res.ok) setTeamAttendance((await res.json()).attendance || []);
+    } catch (err) { console.error(err); }
+    setTeamLoading(false);
   };
 
   const fetchPostEvent = async () => {
@@ -232,6 +245,12 @@ export default function ReportsPage() {
               className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'emails' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
               Emails ({emails.length})
             </button>
+            {canSeePostEvent && (
+              <button onClick={() => { setTab('team'); if (teamAttendance.length === 0) fetchTeam(); }}
+                className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'team' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                Team
+              </button>
+            )}
             {canSeePostEvent && (
               <button onClick={() => { setTab('post-event'); if (!postEventData) fetchPostEvent(); }}
                 className={`px-3 py-2 text-sm rounded-lg font-medium ${tab === 'post-event' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
@@ -684,6 +703,134 @@ export default function ReportsPage() {
             </div>
           </div>
         )}
+        {tab === 'team' && (
+          <>
+            {(() => {
+              const counts = { pending: 0, invited: 0, confirmed: 0, declined: 0, present: 0 };
+              teamAttendance.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
+              const total = teamAttendance.length;
+              const expected = counts.confirmed + counts.present;
+              // Group by role
+              const byRole = {};
+              teamAttendance.forEach(a => {
+                const r = a.user_role || 'other';
+                if (!byRole[r]) byRole[r] = { pending: 0, invited: 0, confirmed: 0, declined: 0, present: 0, total: 0 };
+                byRole[r][a.status] = (byRole[r][a.status] || 0) + 1;
+                byRole[r].total++;
+              });
+              return (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                      <p className="text-xs text-gray-500 uppercase">Total</p>
+                      <p className="text-2xl font-bold text-gray-800">{total}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                      <p className="text-xs text-gray-500 uppercase">Invited</p>
+                      <p className="text-2xl font-bold text-amber-600">{counts.invited + counts.pending}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                      <p className="text-xs text-gray-500 uppercase">Confirmed</p>
+                      <p className="text-2xl font-bold text-green-600">{counts.confirmed}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                      <p className="text-xs text-gray-500 uppercase">Declined</p>
+                      <p className="text-2xl font-bold text-red-600">{counts.declined}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                      <p className="text-xs text-gray-500 uppercase">Present</p>
+                      <p className="text-2xl font-bold text-indigo-600">{counts.present}</p>
+                    </div>
+                  </div>
+
+                  {Object.keys(byRole).length > 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-hidden">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-700">By Role</h3>
+                      </div>
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Role</th>
+                            <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Total</th>
+                            <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Invited</th>
+                            <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Confirmed</th>
+                            <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Declined</th>
+                            <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Present</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(byRole).map(([role, c]) => (
+                            <tr key={role} className="border-t border-gray-100">
+                              <td className="px-4 py-2 font-medium text-gray-800 capitalize">{role.replace('_', ' ')}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{c.total}</td>
+                              <td className="px-4 py-2 text-right text-amber-600">{c.invited + (c.pending || 0)}</td>
+                              <td className="px-4 py-2 text-right text-green-600">{c.confirmed}</td>
+                              <td className="px-4 py-2 text-right text-red-600">{c.declined}</td>
+                              <td className="px-4 py-2 text-right text-indigo-600">{c.present}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-700">Team Attendance Details</h3>
+                      <p className="text-xs text-gray-400">Expected staff coverage: <span className="font-semibold text-indigo-600">{expected}</span></p>
+                    </div>
+                    {teamLoading ? <p className="p-6 text-center text-gray-400 text-sm">Loading…</p>
+                      : teamAttendance.length === 0 ? <p className="p-6 text-center text-gray-400 text-sm">No team members on the list for this event yet. Add them from the Team page.</p>
+                      : (
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Name</th>
+                              <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Role / Org</th>
+                              <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                              <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">RSVP Sent</th>
+                              <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Check-In</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {teamAttendance.map(a => (
+                              <tr key={a.id} className="border-b border-gray-100">
+                                <td className="px-4 py-2">
+                                  <p className="font-medium text-gray-800">{a.user_full_name}</p>
+                                  <p className="text-xs text-gray-400">{a.user_email}</p>
+                                </td>
+                                <td className="px-4 py-2 text-xs text-gray-600">
+                                  <span className="capitalize">{(a.user_role || '').replace('_', ' ')}</span>
+                                  <p className="text-gray-400">{a.user_organization_name}</p>
+                                </td>
+                                <td className="px-4 py-2">
+                                  <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
+                                    a.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                    a.status === 'present' ? 'bg-indigo-100 text-indigo-700' :
+                                    a.status === 'declined' ? 'bg-red-100 text-red-700' :
+                                    a.status === 'invited' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}>{a.status}</span>
+                                </td>
+                                <td className="px-4 py-2 text-xs text-gray-500">
+                                  {a.rsvp_sent_at ? `${new Date(a.rsvp_sent_at).toLocaleDateString()}${a.invited_via ? ` (${a.invited_via})` : ''}` : '—'}
+                                </td>
+                                <td className="px-4 py-2 text-xs text-gray-500">
+                                  {a.checkin_at ? new Date(a.checkin_at).toLocaleString() : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                  </div>
+                </>
+              );
+            })()}
+          </>
+        )}
+
         {tab === 'post-event' && (
           <>
             {postEventLoading ? (

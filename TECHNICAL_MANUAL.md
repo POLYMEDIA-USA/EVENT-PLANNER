@@ -1,6 +1,6 @@
 # FunnelFlow - Technical Manual
 
-**App Version:** 0.9.3
+**App Version:** 0.10.0
 **Last Updated:** 2026-04-23
 
 ---
@@ -273,6 +273,7 @@ FunnelFlow uses Google Cloud Storage as its database, storing all application da
 | `tasks.json` | `[]` | Follow-up tasks with assignments and due dates |
 | `email_logs.json` | `[]` | Email send log with tracking data |
 | `email_templates.json` | `[]` | Custom email templates |
+| `user_event_attendance.json` | `[]` | Team-member attendance records per event (see Team Attendance section) |
 | `audit_log.json` | `[]` | System audit trail (auto-trimmed to 1000 entries) |
 | `organizations.json` | `[]` | Organization records |
 | `settings.json` | `{}` | App settings (SMTP, Vonage, branding) |
@@ -531,6 +532,19 @@ Every request must include: `Authorization: Bearer {session_token}`
 | GET | `/api/auth/me` | Yes | Any | Get current user from token |
 | POST | `/api/auth/forgot-password` | No | Any | Request password reset; emails reset link (1-hour token) |
 | POST | `/api/auth/reset-password` | No | Any | Submit new password with reset token |
+
+#### Team Attendance
+
+Tracks which users (staff) are working each event. Records live in `user_event_attendance.json`, one per `(user_id, event_id)`. Status lifecycle: `pending` → `invited` → `confirmed` / `declined` → `present`.
+
+| Method | Endpoint | Auth | Role | Description |
+|--------|----------|------|------|-------------|
+| GET  | `/api/team/attendance` | Yes | Admin/Sup | List attendance records for an event (`?event_id=<id>`) plus the set of users without records ("candidates") |
+| POST | `/api/team/attendance` | Yes | Admin/Sup | `action='invite'` adds records with status `pending` and an RSVP token; `action='mark'` manually sets `status` for one record (also mints QR for `confirmed`/`present`); `action='delete'` removes a record |
+| GET  | `/api/team/rsvp` | No | Public | Validate token, return event + user summary (no state change — mirrors lead RSVP POST-confirm pattern so email scanners can't trigger false declines) |
+| POST | `/api/team/rsvp` | No | Public | Record accept (→ `confirmed`, mint QR) / decline (→ `declined`); locks after first response |
+| POST | `/api/team/send` | Yes | Admin/Sup | `kind='invite'` emails the RSVP link; `kind='confirmation'` emails the QR check-in code. Autogenerates RSVP tokens and QR codes as needed. Logs to `email_logs.json` with `type='team_invite'`/`'team_confirmation'` |
+| POST | `/api/team/sms` | Yes | Admin/Sup | Sends the RSVP link via Vonage SMS. Requires `phone` on the user and `vonage_api_key`/`vonage_api_secret`/`vonage_from_number` in settings. Stamps `invited_via='sms'` |
 
 #### Events
 
@@ -1126,6 +1140,27 @@ gcloud storage cat gs://corpmarketer-bucket/customers.json --project=corpmarkete
 | `vonage_api_secret` | string | Vonage SMS API secret |
 | `vonage_from_number` | string | SMS sender number |
 | `updated_at` | string (ISO) | Last settings update |
+
+### user_event_attendance.json
+
+One record per `(user_id, event_id)` pair — tracks which team members are working each event.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string (UUID) | Unique identifier |
+| `user_id` | string | FK to `users.json` |
+| `event_id` | string | FK to `events.json` |
+| `status` | string | `pending`, `invited`, `confirmed`, `declined`, `present` |
+| `rsvp_token` | string (base64url) | Generated on invite create; used by `/team-rsvp` |
+| `qr_code_data` | string | 4-char check-in code (shares namespace with customer QR codes) |
+| `rsvp_sent_at` | string (ISO) | When invite email or SMS was sent |
+| `rsvp_responded_at` | string (ISO) | When user clicked accept or decline |
+| `confirmation_sent_at` | string (ISO) | When the QR confirmation email was sent |
+| `checkin_at` | string (ISO) | When scanned in at the event (status → present) |
+| `invited_via` | string | `email`, `sms`, or empty |
+| `notes` | string | Admin notes |
+| `created_at` | string (ISO) | |
+| `updated_at` | string (ISO) | |
 
 ### audit_log.json
 

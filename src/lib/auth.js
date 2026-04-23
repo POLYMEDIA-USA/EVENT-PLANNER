@@ -21,10 +21,18 @@ export function generateRSVPToken() {
 }
 
 // 4-char check-in code using charset that avoids ambiguous glyphs (no I, O, 0, 1).
-// Pass the current customers list so we can guarantee uniqueness.
-export function generateUniqueQRCode(customers) {
+// Callers can pass one or more lists whose qr_code_data values must not collide —
+// typically customers and team-attendance records share a single namespace so the
+// scanner can resolve any scanned code without branching on length/prefix.
+export function generateUniqueQRCode(...lists) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const existing = new Set(customers.map(c => c.qr_code_data).filter(Boolean));
+  const existing = new Set();
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const row of list) {
+      if (row?.qr_code_data) existing.add(row.qr_code_data);
+    }
+  }
   let code;
   do {
     code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');

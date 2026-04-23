@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { getUsers, getCustomers, saveCustomers, getInteractions, saveInteractions } from '@/lib/gcs';
+import { getUsers, getCustomers, saveCustomers, getInteractions, saveInteractions, getTeamAttendance, saveTeamAttendance } from '@/lib/gcs';
 import { v4 as uuidv4 } from 'uuid';
 
 async function authenticate(request) {
@@ -49,17 +49,47 @@ export async function POST(request) {
     const customers = await getCustomers();
 
     if (qr_data && !customer_id) {
+      // Customer and team-attendance codes share one namespace.
+      // Check customers first, then team attendance.
       const customer = customers.find(c => c.qr_code_data === qr_data);
-      if (!customer) return Response.json({ error: 'Invalid QR code' }, { status: 404 });
-      resolvedCustomerId = customer.id;
-      resolvedCustomer = customer;
+      if (customer) {
+        resolvedCustomerId = customer.id;
+        resolvedCustomer = customer;
 
-      // Mark as attended
-      const idx = customers.findIndex(c => c.id === customer.id);
-      if (idx !== -1) {
-        customers[idx].status = 'attended';
-        customers[idx].attended_at = new Date().toISOString();
-        await saveCustomers(customers);
+        // Mark as attended
+        const idx = customers.findIndex(c => c.id === customer.id);
+        if (idx !== -1) {
+          customers[idx].status = 'attended';
+          customers[idx].attended_at = new Date().toISOString();
+          await saveCustomers(customers);
+        }
+      } else {
+        // Try team attendance — scanning a staff QR flips them to "present"
+        const attendance = await getTeamAttendance();
+        const aIdx = attendance.findIndex(a => a.qr_code_data === qr_data);
+        if (aIdx === -1) return Response.json({ error: 'Invalid QR code' }, { status: 404 });
+
+        const rec = attendance[aIdx];
+        const now = new Date().toISOString();
+        rec.status = 'present';
+        rec.checkin_at = rec.checkin_at || now;
+        rec.updated_at = now;
+        attendance[aIdx] = rec;
+        await saveTeamAttendance(attendance);
+
+        // Look up user for the response card
+        const allUsers = await getUsers();
+        const uRec = allUsers.find(x => x.id === rec.user_id);
+        return Response.json({
+          kind: 'team',
+          attendance: rec,
+          user: uRec ? {
+            full_name: uRec.full_name,
+            email: uRec.email,
+            role: uRec.role,
+            organization_name: uRec.organization_name || '',
+          } : null,
+        });
       }
     } else if (resolvedCustomerId) {
       resolvedCustomer = customers.find(c => c.id === resolvedCustomerId) || null;
