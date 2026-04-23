@@ -269,24 +269,36 @@ export default function ReportsPage() {
                 return (
                   <div key={org.name} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     {/* Company Level */}
-                    <div className="p-5 cursor-pointer hover:bg-gray-50 flex items-center justify-between"
+                    <div className="p-4 md:p-5 cursor-pointer hover:bg-gray-50"
                       onClick={() => setExpandedOrg(isOrgExpanded ? null : org.name)}>
-                      <div>
-                        <h3 className="font-semibold text-gray-800 text-lg">{org.name}</h3>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {org.supervisors.length} supervisor{org.supervisors.length !== 1 ? 's' : ''} · {org.reps.length} rep{org.reps.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="grid grid-cols-6 gap-3 text-center">
-                          <div><p className="text-lg font-bold text-gray-800">{org.stats.total}</p><p className="text-[10px] text-gray-400">Leads</p></div>
-                          <div><p className="text-lg font-bold text-teal-600">{org.stats.approved}</p><p className="text-[10px] text-gray-400">Approved to Invite</p></div>
-                          <div><p className="text-lg font-bold text-amber-600">{org.stats.invited}</p><p className="text-[10px] text-gray-400">Invited</p></div>
-                          <div><p className="text-lg font-bold text-green-600">{org.stats.accepted}</p><p className="text-[10px] text-gray-400">Accepted</p></div>
-                          <div><p className="text-lg font-bold text-red-600">{org.stats.declined}</p><p className="text-[10px] text-gray-400">Declined</p></div>
-                          <div><p className="text-lg font-bold text-purple-600">{org.stats.attended}</p><p className="text-[10px] text-gray-400">Attended</p></div>
+                      <div className="flex items-start justify-between gap-2 mb-3 md:mb-0">
+                        <div className="min-w-0 md:flex-1">
+                          <h3 className="font-semibold text-gray-800 text-base md:text-lg truncate">{org.name}</h3>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {org.supervisors.length} supervisor{org.supervisors.length !== 1 ? 's' : ''} · {org.reps.length} rep{org.reps.length !== 1 ? 's' : ''}
+                          </p>
                         </div>
-                        <span className="text-gray-400 text-sm">{isOrgExpanded ? '▼' : '▶'}</span>
+                        <div className="hidden md:flex items-center gap-4 shrink-0">
+                          <div className="grid grid-cols-6 gap-3 text-center">
+                            <div title="Leads"><p className="text-lg font-bold text-gray-800">{org.stats.total}</p><p className="text-[10px] text-gray-400">Leads</p></div>
+                            <div title="Approved to Invite"><p className="text-lg font-bold text-teal-600">{org.stats.approved}</p><p className="text-[10px] text-gray-400">Approved</p></div>
+                            <div title="Invited"><p className="text-lg font-bold text-amber-600">{org.stats.invited}</p><p className="text-[10px] text-gray-400">Invited</p></div>
+                            <div title="Accepted"><p className="text-lg font-bold text-green-600">{org.stats.accepted}</p><p className="text-[10px] text-gray-400">Accepted</p></div>
+                            <div title="Declined"><p className="text-lg font-bold text-red-600">{org.stats.declined}</p><p className="text-[10px] text-gray-400">Declined</p></div>
+                            <div title="Attended"><p className="text-lg font-bold text-purple-600">{org.stats.attended}</p><p className="text-[10px] text-gray-400">Attended</p></div>
+                          </div>
+                          <span className="text-gray-400 text-sm">{isOrgExpanded ? '▼' : '▶'}</span>
+                        </div>
+                        <span className="md:hidden text-gray-400 text-sm shrink-0">{isOrgExpanded ? '▼' : '▶'}</span>
+                      </div>
+                      {/* Mobile-only stats row: grid under the title */}
+                      <div className="md:hidden grid grid-cols-6 gap-1 text-center">
+                        <div title="Leads"><p className="text-base font-bold text-gray-800">{org.stats.total}</p><p className="text-[9px] text-gray-400">Leads</p></div>
+                        <div title="Approved to Invite"><p className="text-base font-bold text-teal-600">{org.stats.approved}</p><p className="text-[9px] text-gray-400">Appr</p></div>
+                        <div title="Invited"><p className="text-base font-bold text-amber-600">{org.stats.invited}</p><p className="text-[9px] text-gray-400">Inv</p></div>
+                        <div title="Accepted"><p className="text-base font-bold text-green-600">{org.stats.accepted}</p><p className="text-[9px] text-gray-400">Acc</p></div>
+                        <div title="Declined"><p className="text-base font-bold text-red-600">{org.stats.declined}</p><p className="text-[9px] text-gray-400">Dec</p></div>
+                        <div title="Attended"><p className="text-base font-bold text-purple-600">{org.stats.attended}</p><p className="text-[9px] text-gray-400">Att</p></div>
                       </div>
                     </div>
 

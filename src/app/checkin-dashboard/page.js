@@ -9,26 +9,33 @@ export default function CheckInDashboardPage() {
   const [myLeads, setMyLeads] = useState([]);
   const [eventLeads, setEventLeads] = useState([]);
   const [interactions, setInteractions] = useState([]);
+  const [teamAttendance, setTeamAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
   const lastPollRef = useRef(null);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   const isAdmin = user?.role === 'admin';
+  const canSeeTeam = user?.role === 'admin' || user?.role === 'supervisor';
 
   const fetchData = async () => {
     try {
       const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
       const myUrl = event ? `/api/leads?event_id=${event.id}` : '/api/leads';
       const eventUrl = event ? `/api/leads?scope=event&event_id=${event.id}` : '/api/leads?scope=event';
-      const [myRes, eventRes, intRes] = await Promise.all([
+      const fetches = [
         fetch(myUrl, { headers }),
         fetch(eventUrl, { headers }),
         fetch('/api/interactions', { headers }),
-      ]);
-      if (myRes.ok) setMyLeads((await myRes.json()).customers || []);
-      if (eventRes.ok) setEventLeads((await eventRes.json()).customers || []);
-      if (intRes.ok) setInteractions((await intRes.json()).interactions || []);
+      ];
+      if (canSeeTeam && event) {
+        fetches.push(fetch(`/api/team/attendance?event_id=${event.id}`, { headers }));
+      }
+      const results = await Promise.all(fetches);
+      if (results[0].ok) setMyLeads((await results[0].json()).customers || []);
+      if (results[1].ok) setEventLeads((await results[1].json()).customers || []);
+      if (results[2].ok) setInteractions((await results[2].json()).interactions || []);
+      if (results[3]?.ok) setTeamAttendance((await results[3].json()).attendance || []);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
@@ -42,14 +49,19 @@ export default function CheckInDashboardPage() {
         const event = JSON.parse(localStorage.getItem('cm_event') || 'null');
         const myUrl = event ? `/api/leads?event_id=${event.id}` : '/api/leads';
         const eventUrl = event ? `/api/leads?scope=event&event_id=${event.id}` : '/api/leads?scope=event';
-        const [intRes, myRes, eventRes] = await Promise.all([
+        const fetches = [
           fetch('/api/interactions', { headers }),
           fetch(myUrl, { headers }),
           fetch(eventUrl, { headers }),
-        ]);
-        if (intRes.ok) setInteractions((await intRes.json()).interactions || []);
-        if (myRes.ok) setMyLeads((await myRes.json()).customers || []);
-        if (eventRes.ok) setEventLeads((await eventRes.json()).customers || []);
+        ];
+        if (canSeeTeam && event) {
+          fetches.push(fetch(`/api/team/attendance?event_id=${event.id}`, { headers }));
+        }
+        const results = await Promise.all(fetches);
+        if (results[0].ok) setInteractions((await results[0].json()).interactions || []);
+        if (results[1].ok) setMyLeads((await results[1].json()).customers || []);
+        if (results[2].ok) setEventLeads((await results[2].json()).customers || []);
+        if (results[3]?.ok) setTeamAttendance((await results[3].json()).attendance || []);
       } catch (err) { console.error(err); }
     }, 30000);
     return () => clearInterval(interval);
@@ -181,6 +193,108 @@ export default function CheckInDashboardPage() {
                 )}
               </div>
             </div>
+
+            {/* ─── Team at this Event (admin/supervisor only) ──────────────── */}
+            {canSeeTeam && teamAttendance.length > 0 && (() => {
+              const expected = teamAttendance.filter(a => a.status === 'confirmed' || a.status === 'present');
+              const present = teamAttendance.filter(a => a.status === 'present');
+              const awaiting = teamAttendance.filter(a => a.status === 'confirmed');
+              const invited = teamAttendance.filter(a => a.status === 'invited' || a.status === 'pending');
+              const declined = teamAttendance.filter(a => a.status === 'declined');
+              const teamPct = expected.length > 0 ? Math.round((present.length / expected.length) * 100) : 0;
+              return (
+                <>
+                  <div className="mb-2 flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-teal-700 uppercase tracking-wide">Team at this Event</h2>
+                    <span className="text-xs text-gray-400">— staff working the event</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Expected</p>
+                      <p className="text-3xl font-bold text-gray-900">{expected.length}</p>
+                      <p className="text-xs text-gray-400 mt-1">Confirmed staff</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Present</p>
+                      <p className="text-3xl font-bold text-indigo-600">{present.length}</p>
+                      <p className="text-xs text-gray-400 mt-1">Scanned in</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Awaiting</p>
+                      <p className="text-3xl font-bold text-amber-600">{awaiting.length}</p>
+                      <p className="text-xs text-gray-400 mt-1">Confirmed, not yet in</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1">No Reply</p>
+                      <p className="text-3xl font-bold text-gray-500">{invited.length}</p>
+                      <p className="text-xs text-gray-400 mt-1">Invited, pending RSVP</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-gray-700">Team Check-In Progress</p>
+                      <p className="text-sm font-bold text-teal-600">{teamPct}%</p>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-4">
+                      <div className="bg-teal-600 h-4 rounded-full transition-all duration-500"
+                        style={{ width: `${teamPct}%` }}></div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">{present.length} of {expected.length} confirmed staff checked in</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-200 bg-indigo-50">
+                        <h2 className="text-sm font-semibold text-indigo-700">Team — Present ({present.length})</h2>
+                      </div>
+                      {present.length === 0 ? (
+                        <p className="p-6 text-center text-gray-400 text-sm">No team members have checked in yet</p>
+                      ) : (
+                        <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                          {present.map(a => (
+                            <div key={a.id} className="px-4 py-3 flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-gray-800">{a.user_full_name}</p>
+                                <p className="text-xs text-gray-400">
+                                  <span className="capitalize">{(a.user_role || '').replace('_', ' ')}</span>
+                                  {a.user_organization_name && ` · ${a.user_organization_name}`}
+                                </p>
+                              </div>
+                              <span className="text-xs text-gray-400">
+                                {a.checkin_at ? new Date(a.checkin_at).toLocaleTimeString() : ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-200 bg-amber-50">
+                        <h2 className="text-sm font-semibold text-amber-700">Team — Awaiting ({awaiting.length})</h2>
+                      </div>
+                      {awaiting.length === 0 ? (
+                        <p className="p-6 text-center text-gray-400 text-sm">All confirmed staff have arrived!</p>
+                      ) : (
+                        <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                          {awaiting.map(a => (
+                            <div key={a.id} className="px-4 py-3">
+                              <p className="text-sm font-medium text-gray-800">{a.user_full_name}</p>
+                              <p className="text-xs text-gray-400">
+                                <span className="capitalize">{(a.user_role || '').replace('_', ' ')}</span>
+                                {a.user_organization_name && ` · ${a.user_organization_name}`}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             {/* ─── My Leads at this Event (role-scoped) ────────────────────── */}
             {!isAdmin && (
