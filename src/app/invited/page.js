@@ -136,18 +136,29 @@ export default function InvitedPage() {
     setSelected(new Set(notSent));
   };
 
-  const promoteSelected = async () => {
+  // Send the invitation email directly from the Approved-to-Invite tab.
+  // Tokens are generated on the backend automatically and status flips to "invited" on successful send.
+  const sendInvitations = async () => {
     if (selected.size === 0) return;
-    const res = await fetch('/api/invited', {
-      method: 'POST', headers,
-      body: JSON.stringify({ customer_ids: [...selected] }),
-    });
-    if (res.ok) {
+    if (!confirm(`Send invitation email to ${selected.size} lead${selected.size !== 1 ? 's' : ''}? RSVP tokens will be generated automatically.`)) return;
+    setSending(true);
+    try {
+      const res = await fetch('/api/email/send-invites', {
+        method: 'POST', headers,
+        body: JSON.stringify({ customer_ids: [...selected], email_type: 'invitation' }),
+      });
       const data = await res.json();
-      alert(`Prepared RSVP tokens for ${data.prepared} leads. Send an email to change their status to Invited.`);
-      setSelected(new Set());
-      fetchData();
+      if (res.ok) {
+        alert(data.message);
+        setSelected(new Set());
+        fetchData();
+      } else {
+        alert(data.error || 'Failed to send invitations');
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
     }
+    setSending(false);
   };
 
   const sendEmails = async () => {
@@ -262,11 +273,14 @@ export default function InvitedPage() {
         {/* Promote Tab */}
         {tab === 'promote' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-500">{selected.size} selected</p>
-              <button onClick={promoteSelected} disabled={selected.size === 0}
-                className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                Prepare RSVP Tokens
+            <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <p className="text-sm text-gray-500">{selected.size} selected</p>
+                <p className="text-xs text-gray-400 mt-0.5">Sending an invitation generates the RSVP token and moves the lead to Invited automatically.</p>
+              </div>
+              <button onClick={sendInvitations} disabled={selected.size === 0 || sending}
+                className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 shrink-0">
+                {sending ? 'Sending…' : `Send Invitation Email${selected.size > 0 ? ` (${selected.size})` : ''}`}
               </button>
             </div>
             {/* Desktop Table */}
