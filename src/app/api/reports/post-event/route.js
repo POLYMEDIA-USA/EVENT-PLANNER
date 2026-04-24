@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { userMatchesToken } from '@/lib/auth';
 import { getUsers, getCustomers, getInteractions, getEvents, getEmailLogs, getSettings } from '@/lib/gcs';
 import nodemailer from 'nodemailer';
 
@@ -7,7 +8,7 @@ async function authenticate(request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   if (!token) return null;
   const users = await getUsers();
-  return users.find(u => u.session_token === token) || null;
+  return users.find(u => userMatchesToken(u, token)) || null;
 }
 
 // GET: return attendees with their interactions and which reps interacted

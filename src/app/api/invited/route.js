@@ -1,13 +1,13 @@
 export const dynamic = 'force-dynamic';
 
 import { getUsers, getCustomers, saveCustomers } from '@/lib/gcs';
-import { generateRSVPToken } from '@/lib/auth';
+import { generateRSVPToken, userMatchesToken } from '@/lib/auth';
 
 async function authenticate(request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   if (!token) return null;
   const users = await getUsers();
-  return users.find(u => u.session_token === token) || null;
+  return users.find(u => userMatchesToken(u, token)) || null;
 }
 
 // GET - fetch invited customers

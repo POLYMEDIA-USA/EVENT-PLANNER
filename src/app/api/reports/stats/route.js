@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { userMatchesToken } from '@/lib/auth';
 import { getUsers, getEvents, getCustomers, getInteractions, getEmailLogs } from '@/lib/gcs';
 
 export async function GET(request) {
@@ -8,7 +9,7 @@ export async function GET(request) {
     if (!token) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const users = await getUsers();
-    const user = users.find(u => u.session_token === token);
+    const user = users.find(u => userMatchesToken(u, token));
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const [events, customers, interactions, emailLogs] = await Promise.all([

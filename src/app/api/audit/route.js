@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic';
 
+import { userMatchesToken } from '@/lib/auth';
 import { getUsers, getAuditLog } from '@/lib/gcs';
 
 async function authenticate(request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   if (!token) return null;
   const users = await getUsers();
-  return users.find(u => u.session_token === token) || null;
+  return users.find(u => userMatchesToken(u, token)) || null;
 }
 
 export async function GET(request) {

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
-import { getUsers, getCustomers, saveCustomers, getEvents, getSettings, getEmailLogs, saveEmailLogs, getTeamAttendance } from '@/lib/gcs';
-import { generateRSVPToken, generateUniqueQRCode } from '@/lib/auth';
+import { getUsers, getCustomers, saveCustomers, getEvents, getSettings, getEmailLogs, saveEmailLogs, getTeamAttendance, getEmailTemplates } from '@/lib/gcs';
+import { generateRSVPToken, generateUniqueQRCode, userMatchesToken } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 
@@ -9,10 +9,24 @@ async function authenticate(request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   if (!token) return null;
   const users = await getUsers();
-  return users.find(u => u.session_token === token) || null;
+  return users.find(u => userMatchesToken(u, token)) || null;
 }
 
-function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage) {
+function applyMergeFields(str, customer, event, settings, baseUrl, senderName) {
+  if (!str) return '';
+  const rsvpLink = customer.rsvp_token ? `${baseUrl}/rsvp?token=${customer.rsvp_token}` : '';
+  return str
+    .replace(/\{\{\s*lead_name\s*\}\}/g, customer.full_name || '')
+    .replace(/\{\{\s*event_name\s*\}\}/g, event.name || '')
+    .replace(/\{\{\s*event_date\s*\}\}/g, event.event_date || '')
+    .replace(/\{\{\s*event_time\s*\}\}/g, event.event_time || '')
+    .replace(/\{\{\s*event_location\s*\}\}/g, event.location || '')
+    .replace(/\{\{\s*company_name\s*\}\}/g, settings.company_name || '')
+    .replace(/\{\{\s*rsvp_link\s*\}\}/g, rsvpLink)
+    .replace(/\{\{\s*sender_name\s*\}\}/g, senderName || '');
+}
+
+function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage, template, senderName) {
   const rsvpAcceptUrl = `${baseUrl}/rsvp?token=${customer.rsvp_token}&action=accept`;
   const rsvpDeclineUrl = `${baseUrl}/rsvp?token=${customer.rsvp_token}&action=decline`;
   const logoUrl = settings.company_logo_url || '';
@@ -33,6 +47,15 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
       <a href="${rsvpDeclineUrl}" style="display:inline-block;padding:12px 32px;background:#DC2626;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">Decline</a>
     </div>`;
 
+  // Signature block — shown above the footer when the sender supplied a name/title.
+  // Multi-line senderName (e.g. "Dave Engelke\nCEO, VerifyAi") becomes a tidy block.
+  const signatureHtml = senderName
+    ? `<div style="margin-top:24px;color:#1F2937;">
+         <p style="margin:0 0 4px;">Regards,</p>
+         <p style="margin:0;white-space:pre-wrap;font-weight:600;">${senderName}</p>
+       </div>`
+    : '';
+
   const footer = `<p style="color:#9CA3AF;font-size:12px;margin-top:32px;">Sent by ${companyName} via FunnelFlow</p>`;
 
   let subject = '';
@@ -49,6 +72,7 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
         ${eventBlock}
         <p>Please let us know if you can attend:</p>
         ${rsvpButtons}
+        ${signatureHtml}
         ${footer}`;
       break;
 
@@ -62,6 +86,7 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
         ${eventBlock}
         <p>Please let us know if you can make it:</p>
         ${rsvpButtons}
+        ${signatureHtml}
         ${footer}`;
       break;
 
@@ -86,6 +111,7 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
         ${eventBlock}
         ${qrUrl}
         <p>If your plans change, please let us know.</p>
+        ${signatureHtml}
         ${footer}`;
       break;
 
@@ -99,18 +125,44 @@ function buildEmailHTML(type, customer, event, settings, baseUrl, customMessage)
         ${eventBlock}
         <p>Please review the updated information above. If you have any questions, don't hesitate to reach out.</p>
         ${rsvpButtons}
+        ${signatureHtml}
         ${footer}`;
       break;
 
     case 'custom':
       subject = customMessage?.subject || `Message from ${companyName}: ${event.name}`;
+      // Include RSVP buttons when the customer has a token so custom-type invites
+      // still give recipients a one-click way to accept or decline.
       body = `
         ${logoHtml}
         <p>Dear ${customer.full_name},</p>
         <div style="margin:16px 0;white-space:pre-wrap;">${customMessage?.body || ''}</div>
         ${eventBlock}
+        ${customer.rsvp_token ? rsvpButtons : ''}
+        ${signatureHtml}
         ${footer}`;
       break;
+
+    case 'template': {
+      // Reusable template from email_templates.json. Merge fields are substituted,
+      // event block + RSVP buttons are auto-appended so the template author can
+      // focus on the message copy and not worry about plumbing.
+      if (!template) {
+        subject = `${event.name}`;
+        body = `${logoHtml}<p>Template not found.</p>${footer}`;
+        break;
+      }
+      subject = applyMergeFields(template.subject || `${event.name}`, customer, event, settings, baseUrl, senderName);
+      const mergedBody = applyMergeFields(template.body_html || '', customer, event, settings, baseUrl, senderName);
+      body = `
+        ${logoHtml}
+        <div style="margin:8px 0;white-space:pre-wrap;">${mergedBody}</div>
+        ${eventBlock}
+        ${customer.rsvp_token ? rsvpButtons : ''}
+        ${signatureHtml}
+        ${footer}`;
+      break;
+    }
 
     default:
       subject = `${event.name}`;
@@ -133,13 +185,28 @@ export async function POST(request) {
       return Response.json({ error: 'Admin only' }, { status: 403 });
     }
 
-    const { customer_ids, email_type, custom_message } = await request.json();
+    const { customer_ids, email_type, custom_message, template_id, sender_name } = await request.json();
+    // Default sender_name to the signed-in user's name so emails always close properly
+    const resolvedSender = (sender_name && sender_name.trim()) || user.full_name || '';
 
     if (!customer_ids || !customer_ids.length) {
       return Response.json({ error: 'No customers selected' }, { status: 400 });
     }
     if (!email_type) {
       return Response.json({ error: 'Email type is required' }, { status: 400 });
+    }
+
+    // Load template up front if this is a template send
+    let resolvedTemplate = null;
+    if (email_type === 'template') {
+      if (!template_id) {
+        return Response.json({ error: 'template_id required for template sends' }, { status: 400 });
+      }
+      const templates = await getEmailTemplates();
+      resolvedTemplate = templates.find(t => t.id === template_id);
+      if (!resolvedTemplate) {
+        return Response.json({ error: 'Template not found' }, { status: 404 });
+      }
     }
 
     const settings = await getSettings();
@@ -196,7 +263,7 @@ export async function POST(request) {
         customers[idx] = customer;
       }
 
-      const { subject, html } = buildEmailHTML(email_type, customer, activeEvent, settings, baseUrl, custom_message);
+      const { subject, html } = buildEmailHTML(email_type, customer, activeEvent, settings, baseUrl, custom_message, resolvedTemplate, resolvedSender);
 
       // Build log entry ID early so we can use it in the tracking pixel
       const logEntryId = uuidv4();
@@ -224,7 +291,7 @@ export async function POST(request) {
       emailLogs.push({
         id: logEntryId,
         direction: 'outbound',
-        type: email_type,
+        type: email_type === 'template' ? (resolvedTemplate?.name || 'template') : email_type,
         from: fromAddress,
         to: customer.email,
         subject,
@@ -246,7 +313,9 @@ export async function POST(request) {
           customer.invited_at = new Date().toISOString();
         }
         customer.invite_sent_at = customer.invite_sent_at || new Date().toISOString();
-        customer[`last_${email_type}_at`] = new Date().toISOString();
+        // Template sends count as invitation-category for status tracking purposes
+        const statusType = email_type === 'template' ? 'invitation' : email_type;
+        customer[`last_${statusType}_at`] = new Date().toISOString();
         customers[idx] = customer;
       }
     }

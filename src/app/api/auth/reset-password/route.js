@@ -34,8 +34,9 @@ export async function POST(request) {
     user.password_hash = hashPassword(password);
     delete user.reset_token;
     delete user.reset_token_expires;
-    // Invalidate existing session so user must log in with new password
+    // Invalidate ALL existing sessions so the user must log in fresh everywhere
     delete user.session_token;
+    user.session_tokens = [];
 
     await saveUsers(users);
 

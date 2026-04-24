@@ -1,14 +1,14 @@
 export const dynamic = 'force-dynamic';
 
 import { getUsers, getTeamAttendance, saveTeamAttendance, getEvents, getCustomers } from '@/lib/gcs';
-import { generateRSVPToken, generateUniqueQRCode } from '@/lib/auth';
+import { generateRSVPToken, generateUniqueQRCode, userMatchesToken } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 async function authenticate(request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   if (!token) return null;
   const users = await getUsers();
-  return users.find(u => u.session_token === token) || null;
+  return users.find(u => userMatchesToken(u, token)) || null;
 }
 
 // GET /api/team/attendance?event_id=<id>

@@ -10,6 +10,7 @@ const EMAIL_TYPES = [
   { value: 'reminder', label: 'Reminder', desc: 'Follow-up for those who haven\'t responded' },
   { value: 'confirmation', label: 'Confirmation', desc: 'Confirm attendance with QR code' },
   { value: 'event_update', label: 'Event Update', desc: 'Share updated event details' },
+  { value: 'template', label: 'From Template', desc: 'Send using a saved email template' },
   { value: 'custom', label: 'Custom Message', desc: 'Write a custom email' },
 ];
 
@@ -33,19 +34,28 @@ export default function InvitedPage() {
   const [searchText, setSearchText] = useState('');
   const [previewEmail, setPreviewEmail] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [senderName, setSenderName] = useState('');
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    // Default sender name to the current user's full name on first render
+    if (!senderName && user?.full_name) setSenderName(user.full_name);
+  }, [user, senderName]);
 
   const fetchData = async () => {
     try {
-      const [leadsRes, invitedRes, emailRes] = await Promise.all([
+      const [leadsRes, invitedRes, emailRes, tplRes] = await Promise.all([
         fetch('/api/leads', { headers }),
         fetch('/api/invited', { headers }),
         fetch('/api/email/log', { headers }),
+        fetch('/api/email/templates', { headers }),
       ]);
+      if (tplRes.ok) setTemplates((await tplRes.json()).templates || []);
       if (leadsRes.ok) {
         const data = await leadsRes.json();
         setLeads((data.customers || []).filter(c => c.status === 'approved'));
@@ -189,15 +199,20 @@ export default function InvitedPage() {
 
   const sendEmails = async () => {
     if (selected.size === 0) { alert('Select at least one invitee'); return; }
+    if (emailType === 'template' && !selectedTemplateId) { alert('Pick a template first.'); return; }
     setSending(true);
 
     try {
       const body = {
         customer_ids: [...selected],
         email_type: emailType,
+        sender_name: senderName,
       };
       if (emailType === 'custom') {
         body.custom_message = { subject: customSubject, body: customBody };
+      }
+      if (emailType === 'template') {
+        body.template_id = selectedTemplateId;
       }
 
       const res = await fetch('/api/email/send-invites', {
@@ -447,6 +462,28 @@ export default function InvitedPage() {
                         )}
                       </div>
 
+                      {emailType === 'template' && (
+                        <div className="mt-4">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Pick a template</label>
+                          {templates.length === 0 ? (
+                            <p className="text-xs text-gray-400 p-3 bg-gray-50 rounded-lg">
+                              No templates yet. Create one in <span className="font-medium">Settings → Email Templates</span>, then refresh.
+                            </p>
+                          ) : (
+                            <select value={selectedTemplateId} onChange={(e) => setSelectedTemplateId(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                              <option value="">— choose a template —</option>
+                              {templates.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          )}
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            Merge fields replaced automatically: &#123;&#123;lead_name&#125;&#125;, &#123;&#123;event_name&#125;&#125;, &#123;&#123;event_date&#125;&#125;, &#123;&#123;event_time&#125;&#125;, &#123;&#123;event_location&#125;&#125;, &#123;&#123;company_name&#125;&#125;, &#123;&#123;rsvp_link&#125;&#125;. Event details block + Accept/Decline buttons are auto-appended.
+                          </p>
+                        </div>
+                      )}
+
                       {emailType === 'custom' && (
                         <div className="mt-4 space-y-3">
                           <div>
@@ -464,7 +501,20 @@ export default function InvitedPage() {
                         </div>
                       )}
 
-                      <button onClick={sendEmails} disabled={sending || (emailType === 'custom' && (!customSubject || !customBody))}
+                      <div className="mt-4">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Signature (how you'll be signed in the email)</label>
+                        <textarea value={senderName} onChange={(e) => setSenderName(e.target.value)}
+                          rows={3}
+                          placeholder={`Dave Engelke\nCEO, VerifyAi`}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono" />
+                        <p className="text-[11px] text-gray-400 mt-1">
+                          Renders as <em>Regards,</em> followed by these lines at the bottom of the email. Multi-line OK (name on one line, title on another, etc.). Also available as <code>&#123;&#123;sender_name&#125;&#125;</code> in templates.
+                        </p>
+                      </div>
+
+                      <button onClick={sendEmails} disabled={sending
+                          || (emailType === 'custom' && (!customSubject || !customBody))
+                          || (emailType === 'template' && !selectedTemplateId)}
                         className="mt-4 w-full py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm">
                         {sending ? 'Sending...' : `Send ${emailType.replace('_', ' ')} to ${selected.size} recipient${selected.size !== 1 ? 's' : ''}`}
                       </button>

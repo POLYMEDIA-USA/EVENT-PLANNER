@@ -40,9 +40,21 @@ export function generateUniqueQRCode(...lists) {
   return code;
 }
 
+/**
+ * Returns true if the given token authenticates the user.
+ * Supports both the legacy single-token (`session_token`) and the
+ * new multi-session array (`session_tokens`) shape, so logins from a
+ * phone and a laptop don't kick each other out.
+ */
+export function userMatchesToken(user, token) {
+  if (!user || !token) return false;
+  if (Array.isArray(user.session_tokens) && user.session_tokens.includes(token)) return true;
+  return user.session_token === token;
+}
+
 export async function verifyToken(token) {
   if (!token) return null;
   const { getUsers } = await import('./gcs');
   const users = await getUsers();
-  return users.find(u => u.session_token === token) || null;
+  return users.find(u => userMatchesToken(u, token)) || null;
 }

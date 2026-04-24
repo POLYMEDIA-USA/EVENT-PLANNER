@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { userMatchesToken } from '@/lib/auth';
 import { getUsers } from '@/lib/gcs';
 import { Storage } from '@google-cloud/storage';
 
@@ -10,7 +11,7 @@ async function authenticate(request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   if (!token) return null;
   const users = await getUsers();
-  return users.find(u => u.session_token === token) || null;
+  return users.find(u => userMatchesToken(u, token)) || null;
 }
 
 // GET — generate a fresh signed URL for an attachment

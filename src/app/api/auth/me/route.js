@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { userMatchesToken } from '@/lib/auth';
 import { getUsers } from '@/lib/gcs';
 
 export async function GET(request) {
@@ -10,7 +11,7 @@ export async function GET(request) {
     }
 
     const users = await getUsers();
-    const user = users.find(u => u.session_token === token);
+    const user = users.find(u => userMatchesToken(u, token));
 
     if (!user) {
       return Response.json({ error: 'Invalid session' }, { status: 401 });

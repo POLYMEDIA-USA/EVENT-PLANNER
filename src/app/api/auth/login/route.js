@@ -18,9 +18,17 @@ export async function POST(request) {
       return Response.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Generate new session token
+    // Generate new session token. Append to session_tokens array so prior
+    // logins (other device, other browser) stay valid. Cap the array at 20
+    // entries per user — FIFO eviction — so an endlessly-reused account
+    // can't balloon the user record forever.
     const token = generateToken();
-    user.session_token = token;
+    user.session_token = token; // keep legacy field populated for backward compat
+    if (!Array.isArray(user.session_tokens)) user.session_tokens = [];
+    user.session_tokens.push(token);
+    if (user.session_tokens.length > 20) {
+      user.session_tokens = user.session_tokens.slice(-20);
+    }
     await saveUsers(users);
 
     const { password_hash, ...safeUser } = user;
