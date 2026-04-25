@@ -32,6 +32,19 @@ export default function TeamPage() {
   const [search, setSearch] = useState('');
   const [nameSearch, setNameSearch] = useState('');
 
+  // Column sort
+  const [sortCol, setSortCol] = useState('');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  // Email panel
+  const [showEmailPanel, setShowEmailPanel] = useState(false);
+  const [emailKind, setEmailKind] = useState('invite');
+  const [customSubject, setCustomSubject] = useState('');
+  const [customBody, setCustomBody] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [senderName, setSenderName] = useState('');
+
   const token = typeof window !== 'undefined' ? localStorage.getItem('cm_token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   const canManage = user?.role === 'admin' || user?.role === 'supervisor';
@@ -41,7 +54,20 @@ export default function TeamPage() {
     setEvent(ev);
     if (ev) fetchData(ev.id);
     else setLoading(false);
+    fetchTemplates();
   }, []);
+
+  useEffect(() => {
+    // Default sender_name to the current admin's full name
+    if (!senderName && user?.full_name) setSenderName(user.full_name);
+  }, [user, senderName]);
+
+  const fetchTemplates = async () => {
+    try {
+      const res = await fetch('/api/email/templates', { headers });
+      if (res.ok) setTemplates((await res.json()).templates || []);
+    } catch (err) { console.error(err); }
+  };
 
   const fetchData = async (eventId) => {
     setLoading(true);
@@ -73,14 +99,39 @@ export default function TeamPage() {
   }, [candidates, search]);
 
   const filteredAttendance = useMemo(() => {
-    if (!nameSearch.trim()) return attendance;
-    const q = nameSearch.toLowerCase();
-    return attendance.filter(a =>
-      (a.user_full_name || '').toLowerCase().includes(q) ||
-      (a.user_email || '').toLowerCase().includes(q) ||
-      (a.user_organization_name || '').toLowerCase().includes(q)
-    );
-  }, [attendance, nameSearch]);
+    let list = attendance;
+    if (nameSearch.trim()) {
+      const q = nameSearch.toLowerCase();
+      list = list.filter(a =>
+        (a.user_full_name || '').toLowerCase().includes(q) ||
+        (a.user_email || '').toLowerCase().includes(q) ||
+        (a.user_organization_name || '').toLowerCase().includes(q)
+      );
+    }
+    if (!sortCol) return list;
+    const fieldMap = {
+      name: 'user_full_name',
+      role: 'user_role',
+      org: 'user_organization_name',
+      status: 'status',
+      rsvp: 'rsvp_sent_at',
+      checkin: 'checkin_at',
+    };
+    const field = fieldMap[sortCol] || sortCol;
+    return [...list].sort((a, b) => {
+      const va = (a[field] || '').toString().toLowerCase();
+      const vb = (b[field] || '').toString().toLowerCase();
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [attendance, nameSearch, sortCol, sortAsc]);
+
+  const handleSort = (col) => {
+    if (sortCol === col) setSortAsc(!sortAsc);
+    else { setSortCol(col); setSortAsc(true); }
+  };
+  const sortArrow = (col) => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
 
   // Build invite records (stores them with status='pending' and rsvp_token; no email sent yet)
   const createInvites = async () => {
@@ -102,18 +153,37 @@ export default function TeamPage() {
     setBusy(false);
   };
 
-  const sendBulkEmailInvites = async (attIds) => {
-    if (attIds.length === 0) return;
-    if (!confirm(`Send invitation email to ${attIds.length} team member${attIds.length !== 1 ? 's' : ''}?`)) return;
+  const sendEmail = async () => {
+    const attIds = [...selected];
+    if (attIds.length === 0) { alert('Select at least one team member.'); return; }
+    if (emailKind === 'custom' && (!customSubject.trim() || !customBody.trim())) {
+      alert('Custom subject and body are required.');
+      return;
+    }
+    if (emailKind === 'template' && !selectedTemplateId) {
+      alert('Pick a template first.');
+      return;
+    }
+    if (!confirm(`Send ${emailKind} email to ${attIds.length} team member${attIds.length !== 1 ? 's' : ''}?`)) return;
     setBusy(true);
     try {
+      const body = {
+        kind: emailKind,
+        attendance_ids: attIds,
+        sender_name: senderName,
+      };
+      if (emailKind === 'custom') body.custom_message = { subject: customSubject, body: customBody };
+      if (emailKind === 'template') body.template_id = selectedTemplateId;
       const res = await fetch('/api/team/send', {
-        method: 'POST', headers,
-        body: JSON.stringify({ kind: 'invite', attendance_ids: attIds }),
+        method: 'POST', headers, body: JSON.stringify(body),
       });
       const data = await res.json();
       alert(data.message || data.error);
-      if (res.ok) await fetchData(event.id);
+      if (res.ok) {
+        setSelected(new Set());
+        setShowEmailPanel(false);
+        await fetchData(event.id);
+      }
     } catch (err) { alert('Network: ' + err.message); }
     setBusy(false);
   };
@@ -284,9 +354,9 @@ export default function TeamPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => sendBulkEmailInvites([...selected])} disabled={busy || selected.size === 0}
+                  <button onClick={() => setShowEmailPanel(!showEmailPanel)} disabled={busy || selected.size === 0}
                     className="px-3 py-2 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                    Send Email Invite
+                    {showEmailPanel ? 'Hide Email Panel' : 'Send Email'}
                   </button>
                   <button onClick={() => sendBulkSmsInvites([...selected])} disabled={busy || selected.size === 0}
                     className="px-3 py-2 bg-teal-600 text-white text-xs rounded-lg hover:bg-teal-700 disabled:opacity-50">
@@ -297,6 +367,101 @@ export default function TeamPage() {
               <input type="text" value={nameSearch} onChange={(e) => setNameSearch(e.target.value)}
                 placeholder="Search team list..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+
+              {/* Email panel */}
+              {showEmailPanel && selected.size > 0 && (
+                <div className="border-t border-gray-200 pt-4 mt-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email Type</label>
+                      <div className="space-y-2">
+                        {[
+                          { value: 'invite', label: 'Built-in Invite', desc: '"Will you be working this event?" with RSVP buttons' },
+                          { value: 'confirmation', label: 'Confirmation', desc: 'Send the QR check-in code (only meaningful for confirmed staff)' },
+                          { value: 'template', label: 'From Template', desc: 'Send using a saved email template' },
+                          { value: 'custom', label: 'Custom Message', desc: 'Write a custom subject and body' },
+                        ].map(t => (
+                          <label key={t.value} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                            emailKind === t.value ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 hover:bg-gray-50'
+                          }`}>
+                            <input type="radio" name="teamEmailKind" value={t.value}
+                              checked={emailKind === t.value} onChange={() => setEmailKind(t.value)}
+                              className="mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{t.label}</p>
+                              <p className="text-xs text-gray-500">{t.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Send Summary</label>
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-1">
+                        <p className="text-sm"><span className="text-gray-500">Recipients:</span> <span className="font-medium">{selected.size}</span> team member{selected.size !== 1 ? 's' : ''}</p>
+                        <p className="text-sm"><span className="text-gray-500">Email type:</span> <span className="font-medium capitalize">{emailKind}</span></p>
+                      </div>
+
+                      {emailKind === 'template' && (
+                        <div className="mt-3">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Pick a template</label>
+                          {templates.length === 0 ? (
+                            <p className="text-xs text-gray-400 p-3 bg-gray-50 rounded-lg">
+                              No templates yet. Create one in <span className="font-medium">Settings → Email Templates</span>, then refresh.
+                            </p>
+                          ) : (
+                            <select value={selectedTemplateId} onChange={(e) => setSelectedTemplateId(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                              <option value="">— choose a template —</option>
+                              {templates.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          )}
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            Merge fields: &#123;&#123;recipient_name&#125;&#125; (or &#123;&#123;lead_name&#125;&#125;), &#123;&#123;event_name&#125;&#125;, &#123;&#123;event_date&#125;&#125;, &#123;&#123;event_time&#125;&#125;, &#123;&#123;event_location&#125;&#125;, &#123;&#123;company_name&#125;&#125;, &#123;&#123;rsvp_link&#125;&#125;, &#123;&#123;sender_name&#125;&#125;.
+                          </p>
+                        </div>
+                      )}
+
+                      {emailKind === 'custom' && (
+                        <div className="mt-3 space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Subject</label>
+                            <input type="text" value={customSubject} onChange={(e) => setCustomSubject(e.target.value)}
+                              placeholder="Email subject..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Body</label>
+                            <textarea value={customBody} onChange={(e) => setCustomBody(e.target.value)} rows={5}
+                              placeholder="Your message to the team..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Signature</label>
+                        <textarea value={senderName} onChange={(e) => setSenderName(e.target.value)} rows={3}
+                          placeholder={`Dave Engelke\nCEO, VerifyAi`}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono" />
+                        <p className="text-[11px] text-gray-400 mt-1">
+                          Renders as <em>Regards,</em> + these lines at the bottom. Multi-line OK.
+                        </p>
+                      </div>
+
+                      <button onClick={sendEmail} disabled={busy
+                          || (emailKind === 'custom' && (!customSubject || !customBody))
+                          || (emailKind === 'template' && !selectedTemplateId)}
+                        className="mt-3 w-full py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm">
+                        {busy ? 'Sending...' : `Send ${emailKind} to ${selected.size} team member${selected.size !== 1 ? 's' : ''}`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -305,11 +470,11 @@ export default function TeamPage() {
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-3 py-2 text-left w-8"></th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Role / Org</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">RSVP</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Check-In</th>
+                      <th onClick={() => handleSort('name')} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Name{sortArrow('name')}</th>
+                      <th onClick={() => handleSort('role')} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Role / Org{sortArrow('role')}</th>
+                      <th onClick={() => handleSort('status')} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Status{sortArrow('status')}</th>
+                      <th onClick={() => handleSort('rsvp')} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">RSVP{sortArrow('rsvp')}</th>
+                      <th onClick={() => handleSort('checkin')} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Check-In{sortArrow('checkin')}</th>
                       <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
