@@ -94,6 +94,38 @@ export default function InvitedPage() {
     }
   };
 
+  // Print/Save-as-PDF the currently-previewed email. Opens a clean popup window
+  // with the email body + a small header so admins can print invites + confirmation
+  // emails (with QR codes) for training leads to practice scanning at events.
+  const printPreviewEmail = () => {
+    if (!previewEmail) return;
+    const w = window.open('', '_blank');
+    if (!w) { alert('Pop-up blocked — allow pop-ups for this site to print.'); return; }
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8" />
+<title>${previewEmail.subject || 'Email'}</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 32px auto; padding: 0 24px; color: #1a1a2e; }
+  .meta { border-bottom: 2px solid #4F46E5; padding-bottom: 14px; margin-bottom: 24px; }
+  .meta h2 { color: #4F46E5; margin: 0 0 8px; font-size: 1.3rem; }
+  .meta p { margin: 3px 0; color: #6B7280; font-size: 13px; }
+  .body-wrap { margin-top: 18px; }
+  @media print { body { margin: 18px; } }
+</style></head><body>
+  <div class="meta">
+    <h2>${previewEmail.subject || ''}</h2>
+    <p><strong>From:</strong> ${previewEmail.from || ''}</p>
+    <p><strong>To:</strong> ${previewEmail.to || ''}</p>
+    <p><strong>Date:</strong> ${previewEmail.created_at ? new Date(previewEmail.created_at).toLocaleString() : ''}</p>
+    <p><strong>Type:</strong> ${(previewEmail.type || '').replace('_', ' ')}</p>
+    ${previewEmail.is_training ? '<p style="color:#92400e;background:#fffbeb;padding:6px 10px;border-radius:6px;display:inline-block;margin-top:8px;"><strong>Training mode</strong> — this email was not sent over SMTP. Print and use it for scan-practice.</p>' : ''}
+  </div>
+  <div class="body-wrap">${previewEmail.html_body || ''}</div>
+</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 300);
+  };
+
   // Open the most recent email of a given type for a customer
   const openEmailPreview = async (customerId, type) => {
     const match = emailLogs
@@ -747,11 +779,23 @@ export default function InvitedPage() {
                     <div><span className="text-gray-400">Sent:</span> {new Date(previewEmail.created_at).toLocaleString()}</div>
                   </div>
                 </div>
-                <button onClick={() => setPreviewEmail(null)}
-                  className="text-gray-400 hover:text-gray-700 text-xl leading-none shrink-0">
-                  ✕
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={printPreviewEmail}
+                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700"
+                    title="Open a print-friendly version in a new tab — use to print or save as PDF for scan-practice">
+                    Print / PDF
+                  </button>
+                  <button onClick={() => setPreviewEmail(null)}
+                    className="text-gray-400 hover:text-gray-700 text-xl leading-none">
+                    ✕
+                  </button>
+                </div>
               </div>
+              {previewEmail.is_training && (
+                <div className="px-5 py-2 bg-purple-50 border-b border-purple-200 text-xs text-purple-800 text-center">
+                  <strong>Training mode</strong> — this email was generated and stored but not sent over SMTP. Use Print / PDF to make a printable copy for scan-practice.
+                </div>
+              )}
               <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 text-center">
                 Preview only — links and buttons in this email are disabled.
               </div>

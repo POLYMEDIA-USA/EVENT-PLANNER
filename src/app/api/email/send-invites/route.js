@@ -234,6 +234,7 @@ export async function POST(request) {
     let sent = 0;
     let failed = 0;
     let skipped = 0;
+    let trainingSimulated = 0;
     const errors = [];
     const emailsSentInBatch = new Set(); // prevent duplicate emails to same address in one batch
 
@@ -271,21 +272,37 @@ export async function POST(request) {
       const trackingPixel = `<img src="${appUrl}/api/email/track?type=open&id=${logEntryId}" width="1" height="1" style="display:none" />`;
       const trackedHtml = html.replace('</body>', `${trackingPixel}</body>`);
 
+      // Training leads (is_training=true or @trainingco.test email) skip the actual SMTP
+      // send so admins/supervisors can still preview, print, and save the generated HTML
+      // (with QR code in confirmation emails) for scan-practice during training. The email
+      // is still logged with status='sent' so the rest of the workflow — status flip,
+      // Invited-tab badges, preview modal — behaves identically to a real send.
+      const isTrainingLead = customer.is_training === true
+        || (customer.email || '').toLowerCase().endsWith('@trainingco.test');
+
       let emailStatus = 'sent';
-      try {
-        await transporter.sendMail({
-          from: `"${settings.company_name || 'FunnelFlow'}" <${fromAddress}>`,
-          to: customer.email,
-          subject,
-          html: trackedHtml,
-        });
+      let trainingSkip = false;
+      if (isTrainingLead) {
+        trainingSkip = true;
+        trainingSimulated++;
         sent++;
         emailsSentInBatch.add(customer.email.toLowerCase());
-      } catch (err) {
-        console.error(`Failed to send to ${customer.email}:`, err.message);
-        emailStatus = 'failed';
-        failed++;
-        errors.push(`${customer.email}: ${err.message}`);
+      } else {
+        try {
+          await transporter.sendMail({
+            from: `"${settings.company_name || 'FunnelFlow'}" <${fromAddress}>`,
+            to: customer.email,
+            subject,
+            html: trackedHtml,
+          });
+          sent++;
+          emailsSentInBatch.add(customer.email.toLowerCase());
+        } catch (err) {
+          console.error(`Failed to send to ${customer.email}:`, err.message);
+          emailStatus = 'failed';
+          failed++;
+          errors.push(`${customer.email}: ${err.message}`);
+        }
       }
 
       emailLogs.push({
@@ -303,6 +320,8 @@ export async function POST(request) {
         sent_by: user.full_name,
         status: emailStatus,
         error: emailStatus === 'failed' ? errors[errors.length - 1] : '',
+        is_training: trainingSkip || undefined,
+        training_note: trainingSkip ? 'Training mode — HTML generated and stored for preview/print, no SMTP delivery attempted.' : undefined,
         created_at: new Date().toISOString(),
       });
 
@@ -326,8 +345,11 @@ export async function POST(request) {
     let message = `Successfully sent ${sent} ${email_type} email${sent !== 1 ? 's' : ''}!`;
     if (failed > 0) message = `Sent ${sent}, failed ${failed}. Check email log for details.`;
     if (skipped > 0) message += ` (${skipped} duplicate address${skipped !== 1 ? 'es' : ''} skipped)`;
+    if (trainingSimulated > 0) {
+      message += ` ${trainingSimulated} training lead${trainingSimulated !== 1 ? 's' : ''} simulated — HTML stored for preview/print but no SMTP delivery attempted.`;
+    }
 
-    return Response.json({ sent, failed, skipped, message, errors });
+    return Response.json({ sent, failed, skipped, training_simulated: trainingSimulated, message, errors });
   } catch (err) {
     console.error('Send invites error:', err);
     return Response.json({ error: 'Failed to send emails: ' + err.message }, { status: 500 });
