@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 
-import { getUsers, getCustomers, saveCustomers, getEventAssignments, saveEventAssignments, getInteractions, getEmailLogs, getTeamAttendance } from '@/lib/gcs';
+import { getUsers, getCustomers, saveCustomers, getEventAssignments, saveEventAssignments, getInteractions, getEmailLogs, saveEmailLogs, getTeamAttendance, getEvents, getSettings } from '@/lib/gcs';
 import { generateRSVPToken, generateUniqueQRCode, userMatchesToken } from '@/lib/auth';
+import { buildConfirmationEmailHTML, isTrainingCustomer, buildTrainingLogEntry } from '@/lib/email';
 import { v4 as uuidv4 } from 'uuid';
 
 async function authenticate(request) {
@@ -227,6 +228,46 @@ export async function PUT(request) {
     }
     if (safeUpdates.status === 'accepted' && !customers[idx].rsvp_token) {
       customers[idx].rsvp_token = generateRSVPToken();
+    }
+
+    // Training auto-simulation: when an admin flips a training lead to "accepted",
+    // generate the confirmation email (with QR) automatically and stamp it. Lets
+    // training run end-to-end without the admin having to click Send Confirm
+    // separately on every dummy lead. Real (non-training) leads keep the manual
+    // confirm-send flow so admins can time those messages deliberately.
+    if (safeUpdates.status === 'accepted' && isTrainingCustomer(customers[idx])) {
+      try {
+        const [settings, events, emailLogs] = await Promise.all([
+          getSettings(), getEvents(), getEmailLogs(),
+        ]);
+        const activeEvent = events.find(e => e.status === 'active');
+        if (activeEvent) {
+          const { subject, html } = buildConfirmationEmailHTML({
+            customer: customers[idx],
+            event: activeEvent,
+            settings,
+            senderName: user.full_name,
+          });
+          emailLogs.push(buildTrainingLogEntry({
+            id: uuidv4(),
+            type: 'confirmation',
+            customer: customers[idx],
+            event: activeEvent,
+            settings,
+            sentByName: user.full_name,
+            subject,
+            html,
+            note: 'Training mode — auto-generated confirmation email after admin flipped status to accepted.',
+          }));
+          await saveEmailLogs(emailLogs);
+          const now = new Date().toISOString();
+          customers[idx].confirmation_sent_at = now;
+          customers[idx].last_confirmation_at = now;
+        }
+      } catch (err) {
+        console.error('Training confirmation auto-gen failed:', err);
+        // Don't block the status change on this — admin can still send manually
+      }
     }
 
     // When a rep is assigned, update the lead's org to match the rep

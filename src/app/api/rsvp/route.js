@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 
-import { getCustomers, saveCustomers, getInteractions, saveInteractions, getEventAssignments, getTeamAttendance } from '@/lib/gcs';
+import { getCustomers, saveCustomers, getInteractions, saveInteractions, getEventAssignments, getTeamAttendance, getEvents, getSettings, getEmailLogs, saveEmailLogs } from '@/lib/gcs';
 import { generateUniqueQRCode } from '@/lib/auth';
+import { buildConfirmationEmailHTML, isTrainingCustomer, buildTrainingLogEntry } from '@/lib/email';
 import { v4 as uuidv4 } from 'uuid';
 
 // GET — no longer processes RSVP; just returns status so scanners can't trigger actions
@@ -58,6 +59,45 @@ export async function POST(request) {
     }
 
     await saveCustomers(customers);
+
+    // Training auto-simulation: when a training lead's RSVP click flips them to
+    // "accepted", auto-generate the confirmation email (with QR) just like the
+    // admin-override path in /api/leads PUT. Real leads keep the manual confirm
+    // send flow.
+    if (action === 'accept' && isTrainingCustomer(customers[idx])) {
+      try {
+        const [settings, events, emailLogs] = await Promise.all([
+          getSettings(), getEvents(), getEmailLogs(),
+        ]);
+        const activeEvent = events.find(e => e.status === 'active');
+        if (activeEvent) {
+          const { subject, html } = buildConfirmationEmailHTML({
+            customer: customers[idx],
+            event: activeEvent,
+            settings,
+            senderName: '',
+          });
+          emailLogs.push(buildTrainingLogEntry({
+            id: uuidv4(),
+            type: 'confirmation',
+            customer: customers[idx],
+            event: activeEvent,
+            settings,
+            sentByName: 'RSVP click',
+            subject,
+            html,
+            note: 'Training mode — auto-generated confirmation email after RSVP click flipped status to accepted.',
+          }));
+          await saveEmailLogs(emailLogs);
+          const now = new Date().toISOString();
+          customers[idx].confirmation_sent_at = now;
+          customers[idx].last_confirmation_at = now;
+          await saveCustomers(customers);
+        }
+      } catch (err) {
+        console.error('Training confirmation auto-gen failed:', err);
+      }
+    }
 
     // Log interaction
     const interactions = await getInteractions();

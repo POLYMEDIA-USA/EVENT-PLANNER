@@ -93,3 +93,78 @@ export function wrapHtmlDocument(bodyHtml) {
   ${bodyHtml}
 </body></html>`;
 }
+
+/**
+ * Build the lead-confirmation email — "You're Confirmed!" with the QR check-in code.
+ * Used by both the manual send flow (/api/email/send-invites) and the auto-simulation
+ * paths in /api/leads PUT and /api/rsvp POST when a training lead becomes "accepted".
+ */
+export function buildConfirmationEmailHTML({ customer, event, settings, senderName }) {
+  const eventBlock = buildEventBlock(event);
+  const logo = buildLogoHtml(settings);
+  const sig = buildSignatureBlock(senderName);
+  const footer = buildFooter(settings);
+  const qrCode = customer?.qr_code_data || '';
+  const qrBlock = qrCode ? `
+    <div style="margin:16px 0;text-align:center;">
+      <p style="font-weight:bold;">Your Check-In QR Code:</p>
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}" alt="QR Code" style="margin:8px auto;" />
+      <p style="color:#6B7280;font-size:12px;">Show this at the event for check-in</p>
+      <div style="margin-top:12px;padding:10px 16px;background:#F3F4F6;border-radius:6px;display:inline-block;">
+        <p style="color:#6B7280;font-size:11px;margin:0 0 4px;">Manual check-in code:</p>
+        <p style="font-family:monospace;font-size:16px;font-weight:bold;color:#1F2937;margin:0;letter-spacing:2px;">${qrCode}</p>
+      </div>
+    </div>` : '';
+  const subject = `Confirmed: ${event?.name || 'Event'} - See You There!`;
+  const html = wrapHtmlDocument(`
+    ${logo}
+    <h2 style="color:#059669;">You're Confirmed!</h2>
+    <p>Dear ${customer?.full_name || ''},</p>
+    <p>Thank you for confirming your attendance! We're excited to see you at:</p>
+    ${eventBlock}
+    ${qrBlock}
+    <p>If your plans change, please let us know.</p>
+    ${sig}
+    ${footer}`);
+  return { subject, html };
+}
+
+/**
+ * Decide whether a customer record is a "training" lead — used to gate
+ * SMTP-skipping and auto-simulation behavior. Two signals:
+ *   - is_training=true (set by /api/training/generate-leads)
+ *   - email ends in @trainingco.test (RFC 6761 reserved TLD; safety net for
+ *     records that may have been created before is_training was added)
+ */
+export function isTrainingCustomer(customer) {
+  if (!customer) return false;
+  if (customer.is_training === true) return true;
+  const email = (customer.email || '').toLowerCase();
+  return email.endsWith('@trainingco.test');
+}
+
+/**
+ * Build a fully-populated email_logs.json entry for a training-simulated send.
+ * Caller appends to logs and persists. Caller is also responsible for the
+ * customer-side timestamp updates (last_confirmation_at, confirmation_sent_at, etc.).
+ */
+export function buildTrainingLogEntry({ id, type, customer, event, settings, sentByName, subject, html, note }) {
+  return {
+    id,
+    direction: 'outbound',
+    type,
+    from: settings?.smtp_from || settings?.smtp_user || '',
+    to: customer?.email || '',
+    subject,
+    html_body: html,
+    customer_id: customer?.id || '',
+    customer_name: customer?.full_name || '',
+    event_id: event?.id || '',
+    event_name: event?.name || '',
+    sent_by: sentByName || '',
+    status: 'sent',
+    is_training: true,
+    training_note: note || 'Training mode — auto-generated. Stored for preview/print, no SMTP delivery attempted.',
+    created_at: new Date().toISOString(),
+  };
+}
