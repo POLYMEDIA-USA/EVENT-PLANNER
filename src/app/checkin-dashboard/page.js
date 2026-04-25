@@ -70,8 +70,11 @@ export default function CheckInDashboardPage() {
   const event = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('cm_event') || 'null') : null;
 
   const computeStats = (leads) => {
-    const accepted = leads.filter(l => l.status === 'accepted' || l.status === 'attended');
-    const checkedIn = leads.filter(l => l.status === 'attended');
+    // "Checked in" includes both in_the_room (live, transient) and attended
+    // (settled after the event closes). "Pending" is anyone confirmed RSVP
+    // but not yet scanned.
+    const accepted = leads.filter(l => l.status === 'accepted' || l.status === 'in_the_room' || l.status === 'attended');
+    const checkedIn = leads.filter(l => l.status === 'in_the_room' || l.status === 'attended');
     const pending = leads.filter(l => l.status === 'accepted');
     const totalExpected = accepted.length;
     const pct = totalExpected > 0 ? Math.round((checkedIn.length / totalExpected) * 100) : 0;

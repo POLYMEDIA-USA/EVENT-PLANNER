@@ -24,7 +24,9 @@ export async function GET(request) {
     ]);
 
     const activeEvent = events.find(e => e.status === 'active');
-    const attendees = customers.filter(c => c.status === 'attended');
+    // Roll in_the_room (live, transient) into attendees so the report works
+    // mid-event and not only after the lifecycle migration runs.
+    const attendees = customers.filter(c => c.status === 'attended' || c.status === 'in_the_room');
 
     // Build attendee data with interactions and reps
     const attendeeData = attendees.map(a => {
@@ -93,7 +95,7 @@ export async function POST(request) {
     const activeEvent = events.find(e => e.status === 'active');
     const targetAttendees = attendee_ids
       ? customers.filter(c => attendee_ids.includes(c.id))
-      : customers.filter(c => c.status === 'attended');
+      : customers.filter(c => c.status === 'attended' || c.status === 'in_the_room');
 
     if (action === 'csv') {
       // Generate CSV of all event data

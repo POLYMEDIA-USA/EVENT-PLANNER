@@ -189,7 +189,7 @@ export default function ReportsPage() {
         if (l.status === 'invited') org.stats.invited++;
         if (l.status === 'accepted') org.stats.accepted++;
         if (l.status === 'declined') org.stats.declined++;
-        if (l.status === 'attended') org.stats.attended++;
+        if (l.status === 'attended' || l.status === 'in_the_room') org.stats.attended++;
       };
 
       org.reps.forEach(rep => {
@@ -226,6 +226,7 @@ export default function ReportsPage() {
     possible: 'bg-blue-100 text-blue-700', approved: 'bg-teal-100 text-teal-700',
     invited: 'bg-amber-100 text-amber-700',
     accepted: 'bg-green-100 text-green-700', declined: 'bg-red-100 text-red-700',
+    in_the_room: 'bg-indigo-100 text-indigo-700',
     attended: 'bg-purple-100 text-purple-700',
   };
 

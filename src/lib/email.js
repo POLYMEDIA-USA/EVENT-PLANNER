@@ -148,6 +148,35 @@ export function isTrainingCustomer(customer) {
  * Caller appends to logs and persists. Caller is also responsible for the
  * customer-side timestamp updates (last_confirmation_at, confirmation_sent_at, etc.).
  */
+/**
+ * Build the "lead just walked in" alert sent to the assigned sales rep and
+ * their supervisor the moment a lead is QR-scanned at the event door.
+ * Concise body so it reads well on a phone notification.
+ */
+export function buildLeadArrivalAlert({ customer, event, settings, baseUrl }) {
+  const logo = buildLogoHtml(settings);
+  const footer = buildFooter(settings);
+  const companyName = settings?.company_name || 'FunnelFlow';
+  const interactionsLink = baseUrl ? `${baseUrl}/interactions` : '';
+  const subject = `🟢 ${customer.full_name} just arrived at ${event?.name || 'the event'}`;
+  const html = wrapHtmlDocument(`
+    ${logo}
+    <h2 style="color:#4F46E5;margin-bottom:6px;">A lead just walked in</h2>
+    <p style="color:#6B7280;margin:0 0 16px;">Heads up — your lead just checked in at the event. Now's the time to find them on the floor.</p>
+    <div style="background:#ecfdf5;border-left:4px solid #10b981;border-radius:8px;padding:14px 16px;margin:16px 0;">
+      <p style="margin:0 0 4px;font-size:1.05rem;font-weight:600;color:#065f46;">${customer.full_name}</p>
+      ${customer.title ? `<p style="margin:2px 0;color:#0f766e;font-size:14px;">${customer.title}</p>` : ''}
+      ${customer.company_name ? `<p style="margin:2px 0;color:#374151;font-size:14px;">${customer.company_name}</p>` : ''}
+      ${customer.email ? `<p style="margin:2px 0;color:#6B7280;font-size:13px;">${customer.email}</p>` : ''}
+      ${customer.phone ? `<p style="margin:2px 0;color:#6B7280;font-size:13px;">${customer.phone}</p>` : ''}
+    </div>
+    <p>Event: <strong>${event?.name || ''}</strong></p>
+    ${interactionsLink ? `<p style="margin:18px 0;"><a href="${interactionsLink}" style="display:inline-block;padding:10px 22px;background:#4F46E5;color:white;text-decoration:none;border-radius:6px;font-weight:600;">Open Interactions in ${companyName}</a></p>` : ''}
+    <p style="color:#9CA3AF;font-size:12px;margin-top:24px;">Status will switch from "in the room" to "attended" automatically after the event closes.</p>
+    ${footer}`);
+  return { subject, html };
+}
+
 export function buildTrainingLogEntry({ id, type, customer, event, settings, sentByName, subject, html, note }) {
   return {
     id,

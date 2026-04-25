@@ -290,11 +290,13 @@ export default function InvitedPage() {
     invited: 'bg-amber-100 text-amber-700',
     accepted: 'bg-green-100 text-green-700',
     declined: 'bg-red-100 text-red-700',
+    in_the_room: 'bg-indigo-100 text-indigo-700',
     attended: 'bg-purple-100 text-purple-700',
   };
 
   const statusLabel = (s) => {
     if (s === 'approved') return 'Approved to Invite';
+    if (s === 'in_the_room') return 'In the Room';
     return s;
   };
 
@@ -648,6 +650,7 @@ export default function InvitedPage() {
                                 <option value="invited">Invited</option>
                                 <option value="accepted">Accepted</option>
                                 <option value="declined">Declined</option>
+                                <option value="in_the_room">In the Room</option>
                                 <option value="attended">Attended</option>
                               </select>
                             ) : (
@@ -726,6 +729,7 @@ export default function InvitedPage() {
                                   <option value="invited">invited</option>
                                   <option value="accepted">accepted</option>
                                   <option value="declined">declined</option>
+                                  <option value="in_the_room">in the room</option>
                                   <option value="attended">attended</option>
                                 </select>
                               ) : (

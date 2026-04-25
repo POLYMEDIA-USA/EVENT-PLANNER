@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { userMatchesToken } from '@/lib/auth';
 import { getUsers, getEvents, getCustomers, getInteractions, getEmailLogs } from '@/lib/gcs';
+import { migrateInTheRoomToAttended } from '@/lib/event-lifecycle';
 
 export async function GET(request) {
   try {
@@ -11,6 +12,12 @@ export async function GET(request) {
     const users = await getUsers();
     const user = users.find(u => userMatchesToken(u, token));
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Lazy-migrate any leads still flagged in_the_room from a closed event so
+    // historical stats roll up correctly. Cheap when nothing needs migrating.
+    if (user.role === 'admin' || user.role === 'supervisor') {
+      await migrateInTheRoomToAttended();
+    }
 
     const [events, customers, interactions, emailLogs] = await Promise.all([
       getEvents(),
@@ -29,7 +36,9 @@ export async function GET(request) {
     const invited = scopedCustomers.filter(c => c.status === 'invited').length;
     const accepted = scopedCustomers.filter(c => c.status === 'accepted').length;
     const declined = scopedCustomers.filter(c => c.status === 'declined').length;
-    const attended = scopedCustomers.filter(c => c.status === 'attended').length;
+    const inTheRoom = scopedCustomers.filter(c => c.status === 'in_the_room').length;
+    // "attended" rolls in_the_room + attended for cross-event reporting parity
+    const attended = scopedCustomers.filter(c => c.status === 'attended' || c.status === 'in_the_room').length;
     const total = scopedCustomers.length;
 
     // Lead score distribution
@@ -39,7 +48,7 @@ export async function GET(request) {
       score += Math.min(interactions.filter(i => i.customer_id === c.id).length * 5, 25);
       score += Math.min(emailLogs.filter(e => e.to === c.email && e.status === 'sent').length * 5, 15);
       if (c.status === 'accepted') score += 20;
-      if (c.status === 'attended') score += 30;
+      if (c.status === 'attended' || c.status === 'in_the_room') score += 30;
       if (c.assigned_rep_id) score += 5;
       if (score >= 50) scoreDistribution.hot++;
       else if (score >= 20) scoreDistribution.warm++;
@@ -54,7 +63,7 @@ export async function GET(request) {
       total_interactions: user.role === 'admin'
         ? interactions.length
         : interactions.filter(i => i.sales_rep_id === user.id).length,
-      pipeline: { possible, approved, invited, accepted, declined, attended, total },
+      pipeline: { possible, approved, invited, accepted, declined, attended, in_the_room: inTheRoom, total },
       scoreDistribution,
     });
   } catch (err) {
