@@ -53,8 +53,11 @@ export async function GET(request) {
     if (emailId) {
       const email = logs.find(e => e.id === emailId);
       if (!email) return Response.json({ error: 'Email not found' }, { status: 404 });
-      if (visibleCustomerIds && !visibleCustomerIds.has(email.customer_id)) {
-        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      if (visibleCustomerIds) {
+        const isTeamEmail = (email.type || '').startsWith('team_');
+        const allowed = visibleCustomerIds.has(email.customer_id)
+          || (user.role === 'supervisor' && isTeamEmail);
+        if (!allowed) return Response.json({ error: 'Forbidden' }, { status: 403 });
       }
       return Response.json({ email });
     }
@@ -64,9 +67,17 @@ export async function GET(request) {
       logs = logs.filter(e => e.customer_id === customerId);
     }
 
-    // Scope to visible customers for non-admins
+    // Scope to visible customers for non-admins.
+    // Team-side emails (team_invite / team_confirmation / team_custom / team_template:*)
+    // have customer_id='' since they're not tied to a lead — supervisors should still see
+    // them so the Team page can render an Emails Sent column. Sales reps are not exposed
+    // to team emails (they don't manage staff attendance).
     if (visibleCustomerIds) {
-      logs = logs.filter(e => visibleCustomerIds.has(e.customer_id));
+      logs = logs.filter(e => {
+        if (visibleCustomerIds.has(e.customer_id)) return true;
+        if (user.role === 'supervisor' && (e.type || '').startsWith('team_')) return true;
+        return false;
+      });
     }
 
     // Sort newest first, strip html_body for list view

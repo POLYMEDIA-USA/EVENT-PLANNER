@@ -25,6 +25,9 @@ export default function TeamPage() {
   const [tab, setTab] = useState('invite'); // 'invite' | 'attending'
   const [attendance, setAttendance] = useState([]);
   const [candidates, setCandidates] = useState([]);
+  const [emailLogs, setEmailLogs] = useState([]);
+  const [previewEmail, setPreviewEmail] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -72,11 +75,18 @@ export default function TeamPage() {
   const fetchData = async (eventId) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/team/attendance?event_id=${eventId}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
+      const [attRes, logRes] = await Promise.all([
+        fetch(`/api/team/attendance?event_id=${eventId}`, { headers }),
+        fetch('/api/email/log', { headers }),
+      ]);
+      if (attRes.ok) {
+        const data = await attRes.json();
         setAttendance(data.attendance || []);
         setCandidates(data.candidates || []);
+      }
+      if (logRes.ok) {
+        const data = await logRes.json();
+        setEmailLogs(data.emails || []);
       }
     } catch (err) { console.error(err); }
     setLoading(false);
@@ -132,6 +142,47 @@ export default function TeamPage() {
     else { setSortCol(col); setSortAsc(true); }
   };
   const sortArrow = (col) => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
+
+  // Email history per recipient — match by email address since team logs have empty customer_id.
+  // Returns the most-recent send timestamp per type label so the row badges show one chip per kind.
+  const getEmailTypesForUser = (email) => {
+    if (!email) return [];
+    const lower = email.toLowerCase();
+    const matches = emailLogs.filter(e => (e.to || '').toLowerCase() === lower && e.status === 'sent');
+    const byLabel = {};
+    matches.forEach(e => {
+      // team_template:<name> is treated per-template-name; everything else uses its bare type
+      const label = (e.type || '').startsWith('team_template:')
+        ? e.type.slice('team_template:'.length)
+        : (e.type || '').replace(/^team_/, '');
+      if (!byLabel[label] || new Date(e.created_at) > new Date(byLabel[label].created_at)) {
+        byLabel[label] = e;
+      }
+    });
+    return Object.entries(byLabel).map(([label, log]) => ({ label, log }));
+  };
+
+  const openEmailPreview = async (logId) => {
+    if (!logId) return;
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/email/log?email_id=${logId}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewEmail(data.email);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to load email');
+      }
+    } catch (err) { alert('Network: ' + err.message); }
+    setPreviewLoading(false);
+  };
+
+  const emailTypeColors = {
+    invite: 'bg-blue-100 text-blue-700',
+    confirmation: 'bg-green-100 text-green-700',
+    custom: 'bg-gray-100 text-gray-700',
+  };
 
   // Build invite records (stores them with status='pending' and rsvp_token; no email sent yet)
   const createInvites = async () => {
@@ -475,12 +526,13 @@ export default function TeamPage() {
                       <th onClick={() => handleSort('status')} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Status{sortArrow('status')}</th>
                       <th onClick={() => handleSort('rsvp')} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">RSVP{sortArrow('rsvp')}</th>
                       <th onClick={() => handleSort('checkin')} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none">Check-In{sortArrow('checkin')}</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Emails Sent</th>
                       <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {loading ? <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
-                      : filteredAttendance.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No team members yet — add them on the "Invite to Work" tab.</td></tr>
+                    {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                      : filteredAttendance.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No team members yet — add them on the "Invite to Work" tab.</td></tr>
                       : filteredAttendance.map(a => (
                         <tr key={a.id} className={`border-b border-gray-100 hover:bg-gray-50 ${selected.has(a.id) ? 'bg-indigo-50' : ''}`}>
                           <td className="px-3 py-2">
@@ -506,6 +558,23 @@ export default function TeamPage() {
                           <td className="px-3 py-2 text-xs text-gray-500">
                             {a.qr_code_data && <p className="font-mono font-bold text-gray-700">{a.qr_code_data}</p>}
                             {a.checkin_at && <p className="text-indigo-600 font-medium">Present @ {new Date(a.checkin_at).toLocaleTimeString()}</p>}
+                          </td>
+                          <td className="px-3 py-2">
+                            {(() => {
+                              const sent = getEmailTypesForUser(a.user_email);
+                              if (sent.length === 0) return <span className="text-xs text-gray-300">None</span>;
+                              return (
+                                <div className="flex flex-wrap gap-1">
+                                  {sent.map(({ label, log }) => (
+                                    <button key={label} onClick={() => openEmailPreview(log.id)}
+                                      className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium hover:ring-2 hover:ring-indigo-300 transition ${emailTypeColors[label] || 'bg-gray-100 text-gray-700'}`}
+                                      title={`Click to view · Sent ${new Date(log.created_at).toLocaleString()}`}>
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">
                             <div className="inline-flex flex-wrap gap-1 justify-end">
@@ -560,6 +629,20 @@ export default function TeamPage() {
                           </div>
                           <p className="text-xs text-gray-400 truncate">{a.user_email}</p>
                           {a.qr_code_data && <p className="text-xs font-mono font-bold text-gray-700 mt-1">QR: {a.qr_code_data}</p>}
+                          {(() => {
+                            const sent = getEmailTypesForUser(a.user_email);
+                            if (sent.length === 0) return null;
+                            return (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {sent.map(({ label, log }) => (
+                                  <button key={label} onClick={() => openEmailPreview(log.id)}
+                                    className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-medium ${emailTypeColors[label] || 'bg-gray-100 text-gray-700'}`}>
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()}
                           <div className="flex flex-wrap gap-1 mt-2">
                             {a.status === 'confirmed' && (
                               <button onClick={() => sendConfirmation(a.id, a.user_full_name, !!a.confirmation_sent_at)} disabled={busy}
@@ -583,6 +666,49 @@ export default function TeamPage() {
               </div>
             </div>
           </>
+        )}
+
+        {/* Email preview modal — same inert pattern as the Invited tab */}
+        {previewEmail && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setPreviewEmail(null)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-3 border-b border-gray-200 bg-gray-50 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold text-gray-900 truncate">{previewEmail.subject}</h3>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-1">
+                    <div><span className="text-gray-400">From:</span> {previewEmail.from}</div>
+                    <div><span className="text-gray-400">To:</span> {previewEmail.to}</div>
+                    <div><span className="text-gray-400">Type:</span> {previewEmail.type}</div>
+                    <div><span className="text-gray-400">Sent:</span> {new Date(previewEmail.created_at).toLocaleString()}</div>
+                  </div>
+                </div>
+                <button onClick={() => setPreviewEmail(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none shrink-0">✕</button>
+              </div>
+              <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 text-center">
+                Preview only — links and buttons in this email are disabled.
+              </div>
+              <div className="flex-1 overflow-y-auto p-5 bg-gray-100">
+                {previewLoading ? (
+                  <p className="text-center text-gray-400 text-sm py-12">Loading email…</p>
+                ) : previewEmail.html_body ? (
+                  <div className="email-preview-inert mx-auto bg-white border border-gray-300 shadow-sm rounded-lg p-6" style={{ maxWidth: '650px' }}>
+                    <div dangerouslySetInnerHTML={{ __html: previewEmail.html_body }} />
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400 text-sm py-12">No body content</p>
+                )}
+              </div>
+              <style jsx>{`
+                .email-preview-inert :global(a),
+                .email-preview-inert :global(button),
+                .email-preview-inert :global(input),
+                .email-preview-inert :global(form) {
+                  pointer-events: none !important;
+                  cursor: default !important;
+                }
+              `}</style>
+            </div>
+          </div>
         )}
       </div>
     </AppShell>
