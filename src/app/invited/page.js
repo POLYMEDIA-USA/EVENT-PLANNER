@@ -77,6 +77,23 @@ export default function InvitedPage() {
     return emailLogs.filter(e => e.customer_id === customerId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   };
 
+  // Admin override of a lead's status — used during training/roleplay so a dummy
+  // lead can be reset back to any stage of the funnel without going through the
+  // full email flow. Backend permits 'invited' for admins only; everything else
+  // works for any role with edit rights.
+  const changeLeadStatus = async (customerId, newStatus) => {
+    const res = await fetch('/api/leads', {
+      method: 'PUT', headers,
+      body: JSON.stringify({ id: customerId, status: newStatus }),
+    });
+    if (res.ok) {
+      fetchData();
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Failed to change status');
+    }
+  };
+
   // Open the most recent email of a given type for a customer
   const openEmailPreview = async (customerId, type) => {
     const match = emailLogs
@@ -586,10 +603,26 @@ export default function InvitedPage() {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">{c.email}</td>
                           <td className="px-4 py-3 text-xs text-gray-500">{c.organization_name}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}>
-                              {statusLabel(c.status)}
-                            </span>
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            {user?.role === 'admin' ? (
+                              <select
+                                value={c.status}
+                                onChange={(e) => changeLeadStatus(c.id, e.target.value)}
+                                title="Admin override — change status for training/roleplay"
+                                className={`text-xs rounded-full font-medium border-0 cursor-pointer focus:ring-2 focus:ring-indigo-300 px-2 py-0.5 ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}
+                              >
+                                <option value="possible">Possible</option>
+                                <option value="approved">Approved to Invite</option>
+                                <option value="invited">Invited</option>
+                                <option value="accepted">Accepted</option>
+                                <option value="declined">Declined</option>
+                                <option value="attended">Attended</option>
+                              </select>
+                            ) : (
+                              <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}>
+                                {statusLabel(c.status)}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center flex-wrap gap-1">
@@ -649,9 +682,25 @@ export default function InvitedPage() {
                           <div className="min-w-0 flex-1 space-y-1.5">
                             <div className="flex items-center justify-between">
                               <p className="text-sm font-semibold text-gray-900 truncate">{c.full_name}</p>
-                              <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ml-2 ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}>
-                                {c.status}
-                              </span>
+                              {user?.role === 'admin' ? (
+                                <select
+                                  value={c.status}
+                                  onChange={(e) => changeLeadStatus(c.id, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`text-xs rounded-full font-medium border-0 cursor-pointer focus:ring-2 focus:ring-indigo-300 px-2 py-0.5 shrink-0 ml-2 ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}
+                                >
+                                  <option value="possible">possible</option>
+                                  <option value="approved">approved</option>
+                                  <option value="invited">invited</option>
+                                  <option value="accepted">accepted</option>
+                                  <option value="declined">declined</option>
+                                  <option value="attended">attended</option>
+                                </select>
+                              ) : (
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ml-2 ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}>
+                                  {c.status}
+                                </span>
+                              )}
                             </div>
                             {c.company_name && <p className="text-xs text-gray-500 truncate">{c.company_name}</p>}
                             <p className="text-xs text-gray-400 truncate">{c.email}</p>

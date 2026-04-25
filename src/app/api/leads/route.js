@@ -209,8 +209,9 @@ export async function PUT(request) {
     }
     // Admin: no restriction
 
-    // Block manual status change to "invited" — that status is only set when an email is actually sent
-    if (updates.status === 'invited') {
+    // Block manual status change to "invited" — that status is only set when an email is actually sent.
+    // Admins are exempt so they can reset training/dummy leads back to "invited" for roleplay exercises.
+    if (updates.status === 'invited' && user.role !== 'admin') {
       return Response.json({ error: 'Cannot manually set status to "invited". Send an invitation email instead.' }, { status: 400 });
     }
 
