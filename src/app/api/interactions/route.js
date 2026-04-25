@@ -18,10 +18,12 @@ export async function GET(request) {
 
     let interactions = await getInteractions();
 
-    // Non-admins only see their own interactions
-    if (user.role !== 'admin' && user.role !== 'supervisor') {
-      interactions = interactions.filter(i => i.sales_rep_id === user.id);
-    }
+    // Visibility: all authenticated users see all interactions. Lead visibility is
+    // already enforced at /api/leads — if a user can't open a lead, they won't have
+    // a way to navigate to that lead's notes anyway. When a user CAN see a lead
+    // (their own, assigned, walk-up attendee, etc.) they should see every note on
+    // it regardless of who wrote it, so reps can pick up where the admin left off
+    // at check-in or vice versa.
 
     // Enrich with customer info
     const customers = await getCustomers();
