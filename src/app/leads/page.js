@@ -243,6 +243,44 @@ export default function LeadsPage() {
     fetchLeads();
   };
 
+  // Training helpers — admin only
+  const bulkResetForTraining = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Reset ${selectedIds.size} selected lead(s) for training?\n\nThis clears status to "possible", removes RSVP tokens, QR codes, attendance flags, and all email-history timestamps. Use this to replay roleplay exercises on the same dummy data.`)) return;
+    setBulkProcessing(true);
+    try {
+      const res = await fetch('/api/training/reset-leads', {
+        method: 'POST', headers, body: JSON.stringify({ ids: [...selectedIds] }),
+      });
+      const data = await res.json();
+      alert(data.message || data.error);
+      if (res.ok) { setSelectedIds(new Set()); fetchLeads(); }
+    } catch (err) { alert('Network: ' + err.message); }
+    setBulkProcessing(false);
+  };
+
+  const generateTrainingLeads = async () => {
+    const input = prompt('How many training leads should I generate? (1-100)', '10');
+    if (input === null) return;
+    const count = parseInt(input, 10);
+    if (!Number.isFinite(count) || count < 1 || count > 100) {
+      alert('Enter a number between 1 and 100.');
+      return;
+    }
+    if (!confirm(`Generate ${count} dummy lead${count !== 1 ? 's' : ''} with status "possible"${event ? ` and attach them to "${event.name}"` : ''}?\n\nEmails use the .test TLD so they cannot deliver to real mailboxes. Notes mark them as training data.`)) return;
+    setBulkProcessing(true);
+    try {
+      const res = await fetch('/api/training/generate-leads', {
+        method: 'POST', headers,
+        body: JSON.stringify({ count, ...(event ? { event_id: event.id } : {}) }),
+      });
+      const data = await res.json();
+      alert(data.message || data.error);
+      if (res.ok) fetchLeads();
+    } catch (err) { alert('Network: ' + err.message); }
+    setBulkProcessing(false);
+  };
+
   // Duplicates helpers
   const fetchDuplicates = async () => {
     setDupLoading(true);
@@ -290,6 +328,15 @@ export default function LeadsPage() {
             {event && <p className="text-sm text-gray-500">Event: {event.name}</p>}
           </div>
           <div className="flex gap-2 flex-wrap">
+            {user?.role === 'admin' && (
+              <button
+                onClick={generateTrainingLeads}
+                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700"
+                title="Generate dummy leads for training/roleplay"
+              >
+                + Generate Training Leads
+              </button>
+            )}
             {(user?.role === 'admin' || user?.role === 'supervisor') && (
               <button
                 onClick={fetchDuplicates}
@@ -499,6 +546,13 @@ export default function LeadsPage() {
               className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 disabled:opacity-50">
               Delete Selected
             </button>
+            {user?.role === 'admin' && (
+              <button onClick={bulkResetForTraining} disabled={bulkProcessing}
+                className="px-3 py-1 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                title="Reset to possible — clears tokens, QR codes, attendance, all email timestamps">
+                ↻ Reset for Training
+              </button>
+            )}
             <button onClick={() => setSelectedIds(new Set())}
               className="px-3 py-1 bg-gray-200 text-gray-600 text-xs rounded-lg hover:bg-gray-300 ml-auto">
               Deselect All
