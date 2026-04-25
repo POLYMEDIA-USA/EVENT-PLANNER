@@ -66,7 +66,13 @@ async function sendArrivalAlert(customer, eventIdHint, request) {
     auth: { user: settings.smtp_user, pass: settings.smtp_pass },
   });
 
-  const { subject, html } = buildLeadArrivalAlert({ customer, event, settings, baseUrl });
+  const { subject, html } = buildLeadArrivalAlert({
+    customer,
+    event,
+    settings,
+    baseUrl,
+    isTraining: isTrainingCustomer(customer),
+  });
 
   const recipients = [rep, ...supervisors];
   for (const recipient of recipients) {
@@ -83,10 +89,11 @@ async function sendArrivalAlert(customer, eventIdHint, request) {
       console.error(`Lead arrival alert to ${recipient.email} failed:`, err.message);
       status = 'failed';
     }
+    const isTraining = isTrainingCustomer(customer);
     emailLogs.push({
       id: logId,
       direction: 'outbound',
-      type: 'lead_arrival_alert',
+      type: isTraining ? 'lead_arrival_alert_training' : 'lead_arrival_alert',
       from: fromAddress,
       to: recipient.email,
       subject,
@@ -95,8 +102,9 @@ async function sendArrivalAlert(customer, eventIdHint, request) {
       customer_name: customer.full_name,
       event_id: event?.id || '',
       event_name: event?.name || '',
-      sent_by: 'system (arrival alert)',
+      sent_by: isTraining ? 'system (training drill)' : 'system (arrival alert)',
       status,
+      is_training: isTraining || undefined,
       created_at: new Date().toISOString(),
     });
   }
@@ -165,9 +173,10 @@ export async function POST(request) {
         }
         // Fire-and-forget alert email to the assigned rep + their supervisor.
         // Don't block the scan response if email fails — admin already has the
-        // success card. Skip alerts for training leads (avoid spamming during
-        // practice runs).
-        if (didCheckIn && !isTrainingCustomer(customers[idx])) {
+        // success card. Training leads also send so reps see the full real-event
+        // flow during drills; the email is clearly marked [TRAINING] in subject
+        // and body so recipients know it's a drill.
+        if (didCheckIn) {
           sendArrivalAlert(customers[idx], event_id, request).catch(err => {
             console.error('Lead arrival alert send failed:', err);
           });
@@ -210,11 +219,9 @@ export async function POST(request) {
           customers[idx].status = 'in_the_room';
           customers[idx].attended_at = new Date().toISOString();
           await saveCustomers(customers);
-          if (!isTrainingCustomer(customers[idx])) {
-            sendArrivalAlert(customers[idx], event_id, request).catch(err => {
-              console.error('Lead arrival alert send failed:', err);
-            });
-          }
+          sendArrivalAlert(customers[idx], event_id, request).catch(err => {
+            console.error('Lead arrival alert send failed:', err);
+          });
         }
       }
     }

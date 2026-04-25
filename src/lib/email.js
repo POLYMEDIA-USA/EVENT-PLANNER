@@ -153,14 +153,22 @@ export function isTrainingCustomer(customer) {
  * their supervisor the moment a lead is QR-scanned at the event door.
  * Concise body so it reads well on a phone notification.
  */
-export function buildLeadArrivalAlert({ customer, event, settings, baseUrl }) {
+export function buildLeadArrivalAlert({ customer, event, settings, baseUrl, isTraining = false }) {
   const logo = buildLogoHtml(settings);
   const footer = buildFooter(settings);
   const companyName = settings?.company_name || 'FunnelFlow';
   const interactionsLink = baseUrl ? `${baseUrl}/interactions` : '';
-  const subject = `🟢 ${customer.full_name} just arrived at ${event?.name || 'the event'}`;
+  const subjectPrefix = isTraining ? '[TRAINING] ' : '';
+  const subject = `${subjectPrefix}🟢 ${customer.full_name} just arrived at ${event?.name || 'the event'}`;
+  const trainingBanner = isTraining
+    ? `<div style="background:#f3e8ff;border-left:4px solid #9333ea;border-radius:8px;padding:12px 14px;margin:0 0 16px;">
+         <p style="margin:0;font-weight:700;color:#6b21a8;font-size:14px;">⚠️ TRAINING DRILL — not a real check-in</p>
+         <p style="margin:4px 0 0;color:#7e22ce;font-size:13px;">This is a simulated arrival from a training/dummy lead. The flow you're seeing is identical to a real event check-in so you know what to expect on game day. No action required.</p>
+       </div>`
+    : '';
   const html = wrapHtmlDocument(`
     ${logo}
+    ${trainingBanner}
     <h2 style="color:#4F46E5;margin-bottom:6px;">A lead just walked in</h2>
     <p style="color:#6B7280;margin:0 0 16px;">Heads up — your lead just checked in at the event. Now's the time to find them on the floor.</p>
     <div style="background:#ecfdf5;border-left:4px solid #10b981;border-radius:8px;padding:14px 16px;margin:16px 0;">
