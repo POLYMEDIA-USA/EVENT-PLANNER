@@ -10,7 +10,8 @@ record: what arrived, and what this repo did about it.
 
 # 2026-09-17 — Intake: both Access Portal messages actioned in v0.11.0
 
-**Status: implemented and shipped, with one item handed back to Dave.**
+**Status: implemented, committed and tagged `v0.11.0`. NOT yet deployed** - the build is blocked on
+credentials (see "Blocked" below), and the `events.verifyai.net` mapping is handed back to Dave.
 
 ## Received
 
@@ -51,6 +52,15 @@ record: what arrived, and what this repo did about it.
 - **The partial-case tradeoff (skipping the forced redirect):** we agree with it and did not raise
   it with Dave as a re-decision. Forcing an event-floor rep to a Portal login they can't complete
   would break the primary use case of this app.
+
+## Blocked (needs Dave, not code)
+
+- **Deploy could not run.** `gcloud builds submit` as the automation SA fails with
+  `forbidden from accessing the bucket [corpmarketer-app_cloudbuild]`, and a probe shows the SA has
+  **no** grants at all on `corpmarketer-app` (`run.services.get` denied too) - contrary to
+  RMA-MANAGER's 2026-08-23 message, which said the 5 deploy roles were granted here. Meanwhile
+  `dave@parametrik.net` needs an interactive `gcloud auth login`. So v0.11.0 is tagged and pushed
+  but the live revision is still `corpmarketer-00065-ssx` (v0.10.11).
 
 ## Handed back to Dave (not done)
 

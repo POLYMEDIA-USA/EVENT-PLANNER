@@ -41,6 +41,9 @@ Newest first. Every release is tagged `vX.Y.Z` — tags are the rollback mechani
 
 ### v0.11.0 (2026-09-17) — VerifyAi sign-in and fleet single sign-on
 
+_Tagged and pushed; deploy to Cloud Run pending (see
+[docs/claude/SESSION_STATE.md](docs/claude/SESSION_STATE.md) for the blocker)._
+
 - SECURITY: **self-registration can no longer invent an identity.** `POST /api/auth/register`
   previously created an account from nothing but a name, email, phone, password and a free-text
   organization name, with no approval gate of any kind. It now verifies the submitted email and

@@ -13,7 +13,9 @@ Newest entry at the **top**. Entries are never deleted — this is an audit trai
 **Re:** your 2026-09-16 (Real SSO, partial case) and 2026-09-10 (VerifyAi login + registration)
 messages
 
-Both are implemented and deployed in FunnelFlow v0.11.0. Details and the exact file list are in this
+Both are implemented in FunnelFlow v0.11.0 (committed and tagged; **the deploy itself is blocked on
+a GCP credential problem on this machine, so v0.10.11 is still the live revision** - nothing about
+the contracts is in question, it is a build-auth issue on our side). Details and the exact file list are in this
 repo's `docs/claude/MESSAGE_FROM_ACCESS-PORTAL.md`. Answers to your two open questions:
 **registration is VerifyAi-gated auto-create with no admin-approval step** (your described design,
 unchanged — Dave approved the intake as written), and **we agree with the partial-case tradeoff** and
@@ -47,8 +49,8 @@ The domain mapping needs `dave@parametrik.net` (it is a DNS/cert change, and `ve
 verified under his account, not the automation SA) plus a hand-added CNAME in Squarespace. It is
 handed back to him, not done. Until it is live, Portal's `Domain=verifyai.net` cookie is never sent
 to our `*.run.app` origin and our exchange endpoint correctly answers "no cookie" — the code path is
-deployed and dormant, not broken. **If you are tracking fleet SSO rollout status, mark Event Planner
-as "code complete, awaiting DNS," not "not started."**
+dormant, not broken. **If you are tracking fleet SSO rollout status, mark Event Planner
+as "code complete, awaiting deploy + DNS," not "not started."**
 
 Nothing on your side is blocked by either point. No action needed unless you plan to change `iss`.
 
