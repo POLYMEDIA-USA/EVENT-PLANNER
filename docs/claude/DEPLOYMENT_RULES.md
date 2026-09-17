@@ -49,12 +49,19 @@ Dave's shorthand for a full release. Execute every step in order. Do NOT pause b
      --allow-unauthenticated \
      --set-env-vars "GCS_BUCKET=corpmarketer-bucket"
    ```
+   A successful `builds submit` as the SA still ends with an error about streaming logs (it lacks
+   project Viewer). The build is running anyway: poll
+   `gcloud builds describe <build-id> --project corpmarketer-app --account $SA
+   --format="value(status)"` until SUCCESS rather than trusting the exit code.
+
    **Always pass `--account` and `--project` explicitly.** `dave@parametrik.net` is a Workspace
    *user* account whose session control forces periodic reauth, which in a headless session fails
    with `Reauthentication failed. cannot prompt during non-interactive execution`. The automation
    service account's credentials refresh forever and never prompt. Its key lives at
    `C:/Users/davee/.gcp/claude-automation-key.json` (never commit or print it) and it is already
-   granted the 5 deploy roles on `corpmarketer-app`. Never rely on the active gcloud config — its
+   granted six roles on `corpmarketer-app` (2026-09-17): the documented five plus
+   `roles/serviceusage.serviceUsageConsumer`, without which `builds submit` fails with a misleading
+   `forbidden from accessing the bucket [corpmarketer-app_cloudbuild]`. Never rely on the active gcloud config — its
    default project drifts across ~30 projects, and the default account stays `dave@parametrik.net`
    on purpose. A *permission-denied* (as opposed to a reauth prompt) means the SA lost a grant here;
    re-grant as `dave@parametrik.net`. See global `~/.claude/CLAUDE.md` section 8.
@@ -69,8 +76,11 @@ Dave's shorthand for a full release. Execute every step in order. Do NOT pause b
 8. **Verify live** — not "the site loads." Name the live revision id, and hit the specific
    thing that changed with a real request, quoting the real response. Examples for auth changes:
    ```bash
-   # the SSO exchange route is live and rejects a request carrying no Portal cookie
-   curl -s -X POST https://corpmarketer-678407058536.us-central1.run.app/api/auth/portal-session
+   # the SSO exchange route is live and rejects a request carrying no Portal cookie.
+   # Content-Length: 0 is required -- a bodyless POST otherwise gets a 411 from Google's frontend
+   # before it reaches the app. Browsers set it themselves.
+   curl -s -X POST -H "Content-Length: 0" \
+     https://corpmarketer-678407058536.us-central1.run.app/api/auth/portal-session
    # -> {"error":"No Portal session","reason":"no_cookie"}
 
    # VerifyAi-gated registration really reaches VerifyAi's auth-api
@@ -128,9 +138,6 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
 gcloud builds list --project=corpmarketer-app --limit=5
 
 # Read a data file directly (useful for debugging prod state)
-# NOTE: as of 2026-09-17 the automation SA gets 403 storage.objects.get on this bucket even though
-# it holds roles/storage.admin on the project — run bucket reads as dave@parametrik.net (or
-# re-grant) if you need this.
 gcloud storage cat gs://corpmarketer-bucket/settings.json --project=corpmarketer-app \
-  --account dave@parametrik.net
+  --account claude-automation@rma-manager-489912.iam.gserviceaccount.com
 ```

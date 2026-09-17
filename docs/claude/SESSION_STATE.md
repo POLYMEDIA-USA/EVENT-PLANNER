@@ -7,11 +7,34 @@
 
 ## Deployed To
 - Cloud Run `corpmarketer` / project `corpmarketer-app` / region `us-central1`
-- Revision: **`corpmarketer-00065-ssx`, 100% traffic — still v0.10.11.**
-  **v0.11.0 is tagged and pushed but NOT deployed** (see Active Blockers).
+- Revision: **`corpmarketer-00067-bk2`, 100% traffic** (v0.11.0, deployed 2026-09-17). Previous:
+  `corpmarketer-00066-nkc` (v0.10.11) — that is the rollback target, not `00065-ssx`, which
+  earlier notes in this file wrongly recorded as live.
+- Build: `fef2e10a-2b60-423b-a762-7c3ed7a880e2` (SUCCESS)
 - Live URL: https://corpmarketer-678407058536.us-central1.run.app
+- Service is configured `latestRevision: true`, so a deploy moves traffic on its own.
 
-## v0.11.0 — VerifyAi sign-in + fleet SSO (code complete, awaiting deploy)
+### v0.11.0 live verification (2026-09-17, against `corpmarketer-00067-bk2`)
+
+```
+POST /api/auth/portal-session (no cookie)        -> 401 {"error":"No Portal session","reason":"no_cookie"}
+POST /api/auth/portal-session (garbage cookie)   -> 401 same
+POST /api/auth/portal-session (forged-signature
+     token with the correct claim shape/issuer)  -> 401 same   <- signature verification really runs
+POST /api/auth/register (bogus VerifyAi creds)   -> 401 "Those VerifyAi credentials were not
+                                                    accepted..."  <- oracle wiring proven end to end
+POST /api/auth/login (wrong password)            -> 401 "Invalid email or password"
+GET  /                                           -> 200
+```
+
+Gotcha for next time: `curl -X POST` with no body gets a **411 Length Required** from Google's
+frontend before it ever reaches the app. Pass `-H "Content-Length: 0"`. Browsers set that header
+themselves, so the real client path is unaffected.
+
+Still unexercised: the happy path where a verified Portal email matches a local user. It needs a
+real Portal cookie, which requires the `events.verifyai.net` mapping below.
+
+## v0.11.0 — VerifyAi sign-in + fleet SSO (live)
 
 Implements both outstanding Access Portal contracts. Intake record and our replies:
 [MESSAGE_FROM_ACCESS-PORTAL.md](MESSAGE_FROM_ACCESS-PORTAL.md),
@@ -53,7 +76,9 @@ Implements both outstanding Access Portal contracts. Intake record and our repli
   no cookie and with a garbage cookie.
 - **Not** exercised: the happy path where a verified Portal email matches a real local user. It
   reuses `issueSession()` (same code as password login) and testing it against the prod bucket would
-  have minted a live admin session token, so it was left for the post-deploy check.
+  have minted a live admin session token. Post-deploy it stays unexercised for a different reason:
+  it needs a real Portal cookie, which needs the DNS mapping. See the live-verification block above
+  for what production actually proves today.
 
 ## Recent Releases## Recent Releases — v0.10.x train
 
@@ -90,48 +115,38 @@ The 0.10 minor introduced Team Attendance + the training/training-fidelity workf
 
 ## Active Blockers
 
-1. **Deploy of v0.11.0 is blocked on GCP credentials.** Both paths are dead on this machine right now:
-   - Automation SA (`claude-automation@rma-manager-489912.iam.gserviceaccount.com`):
-     `gcloud builds submit` fails with `forbidden from accessing the bucket
-     [corpmarketer-app_cloudbuild]`, and a probe shows it has **no** grants at all on
-     `corpmarketer-app` — `gcloud run services describe` also returns `PERMISSION_DENIED` on
-     `run.services.get`. RMA-MANAGER's 2026-08-23 message claimed the 5 deploy roles were granted
-     here; they are not. (Its `roles/storage.admin` is likewise absent — reading
-     `gs://corpmarketer-bucket/*.json` as the SA 403s.)
-   - `dave@parametrik.net`: needs an interactive `gcloud auth login` (the Workspace session-control
-     reauth the SA was supposed to eliminate). Cannot be done headlessly.
-   - No local Docker either, so a build-and-push around Cloud Build is not available.
-
-   **Fix, either one:** (a) Dave runs `gcloud auth login` once, then the SA is onboarded properly
-   with the 5-role loop from global `~/.claude/CLAUDE.md` §8 (plus `roles/serviceusage.serviceUsageConsumer`,
-   which the documented loop omits and which is what the bucket error is actually about), or
-   (b) grant those roles from the Cloud Console on another machine.
-
-2. **`events.verifyai.net` domain mapping is not created.** Needs
+1. **`events.verifyai.net` domain mapping is not created.** Needs
    `gcloud beta run domain-mappings create --service corpmarketer --domain events.verifyai.net
    --project corpmarketer-app --region us-central1` as `dave@parametrik.net` (DNS/cert changes run as
-   Dave — `verifyai.net` is verified under his account, not the SA), then the returned CNAME added in
-   Squarespace DNS. **Fleet SSO stays inert until this lands**, because Portal's cookie is
+   Dave — `verifyai.net` is verified under his account, not the SA), then the returned CNAME added
+   in Squarespace DNS. **Fleet SSO stays dormant until this lands**, because Portal's cookie is
    `Domain=verifyai.net` and is never sent to a `*.run.app` origin. The VerifyAi password login and
-   gated registration in v0.11.0 work on the current URL without it.
+   the gated registration in v0.11.0 are live and working on the current URL without it.
 
-3. **Vonage 10DLC campaign**: unchanged — blocked on Dave funding the wallet and resubmitting.
+2. **Vonage 10DLC campaign**: unchanged — blocked on Dave funding the wallet and resubmitting.
 
-## Post-deploy checklist for v0.11.0 (do this the moment the deploy lands)
+## Resolved 2026-09-17 — the deploy credential blocker
 
-```bash
-BASE=https://corpmarketer-678407058536.us-central1.run.app
-# 1. the new exchange route is live and rejects a cookie-less request
-curl -s -X POST $BASE/api/auth/portal-session
-#    expect {"error":"No Portal session","reason":"no_cookie"}
-# 2. registration really reaches VerifyAi's auth-api (proves the oracle wiring end to end)
-curl -s -X POST $BASE/api/auth/register -H "Content-Type: application/json" \
-  -d '{"full_name":"T","email":"nobody@example.com","password":"x","organization_name":"T"}'
-#    expect 401 "Those VerifyAi credentials were not accepted..."
-# 3. existing local login still works — sign in as dave@verifyai.net in the browser
+Recorded because any repo on this machine can hit the same thing. The automation SA
+(`claude-automation@rma-manager-489912.iam.gserviceaccount.com`) genuinely had **no** bindings on
+`corpmarketer-app`, despite RMA-MANAGER's 2026-08-23 intake message stating the 5 deploy roles were
+granted here. Dave re-authed `dave@parametrik.net`, then this session bound six roles:
+
 ```
-Then record the new revision id here, and add the v0.11.0 baseline to root `CLAUDE.md` (deliberately
-**not** added yet — nothing is a verified baseline until it is live).
+roles/run.admin  roles/cloudbuild.builds.editor  roles/storage.admin
+roles/artifactregistry.writer  roles/iam.serviceAccountUser
+roles/serviceusage.serviceUsageConsumer      <- NOT in the documented 5-role loop
+```
+
+**`roles/serviceusage.serviceUsageConsumer` is the one the global `~/.claude/CLAUDE.md` §8 loop
+omits**, and it is what the misleading `forbidden from accessing the bucket
+[corpmarketer-app_cloudbuild]` error is actually about (the message blames the bucket; the missing
+permission is `serviceusage.services.use`). Bindings also need ~a minute to propagate — the first
+build retry after granting still failed, the second succeeded unchanged.
+
+Expect one harmless error at the end of a successful `gcloud builds submit` as the SA: it cannot
+stream build logs without project Viewer. The build is running regardless — poll
+`gcloud builds describe <id> --format="value(status)"` instead of trusting the exit code.
 
 ## Active work / not yet done
 
@@ -140,10 +155,8 @@ Then record the new revision id here, and add the v0.11.0 baseline to root `CLAU
 
 ## Next session quick-start
 
-**First: is v0.11.0 deployed?** `gcloud run revisions list --service=corpmarketer
---region=us-central1 --project=corpmarketer-app --limit=3`. If the live revision is still
-`corpmarketer-00065-ssx`, the Active Blockers above are still current and the deploy is the first
-task. If it has moved, run the post-deploy checklist above and update this file.
+v0.11.0 is live and verified (revision `corpmarketer-00067-bk2`). Fleet SSO code is deployed but
+dormant until `events.verifyai.net` is mapped — that is the top open item.
 
 If Dave reports a Settings save 403 → recommend sign-out/in (multi-session edge case, not a bug).
 If Dave reports SMTP failures with `535-5.7.8` → App Password regen on `rma.manager`.

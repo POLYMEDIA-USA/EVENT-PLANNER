@@ -18,7 +18,15 @@
 
 ## Verified Baselines (immutable — don't second-guess)
 
-- **v0.10.11** — current production state (revision `corpmarketer-00065-ssx`, 100% traffic). Training arrival alerts tagged `[TRAINING]`. Full v0.10.x training/event-fidelity stack: in_the_room status, auto-migrate after event close, arrival alerts to assigned rep + supervisor, training data generator, training reset, training email simulation (HTML stored, no SMTP), Print/PDF on email preview, auto-confirmation when training lead status flips to accepted, shared interaction visibility across all roles, multi-session auth, reusable email templates, sender-signature, Team page email panel + column sort + emails-sent column.
+- **v0.11.0** — current production state (revision `corpmarketer-00067-bk2`, 100% traffic,
+  deployed 2026-09-17). VerifyAi sign-in (`auth_source` of `local`/`verifyai`, VerifyAi auth-api used
+  strictly as a yes/no credential oracle), VerifyAi-gated self-registration (open registration is
+  closed), and Access Portal fleet SSO as a **deliberate partial case** — FunnelFlow never
+  force-redirects visitors to Portal, because event-floor reps have no account anywhere yet and
+  Portal has no self-registration. Portal's cookie is consumed in exactly one route
+  (`/api/auth/portal-session`) and never auto-provisions. At least one admin must always keep a local
+  password; the API enforces it. SSO is deployed but dormant until `events.verifyai.net` is mapped.
+- **v0.10.11** — prior production state (revision `corpmarketer-00066-nkc` — the rollback target; `00065-ssx` was misrecorded as live in older notes). Training arrival alerts tagged `[TRAINING]`. Full v0.10.x training/event-fidelity stack: in_the_room status, auto-migrate after event close, arrival alerts to assigned rep + supervisor, training data generator, training reset, training email simulation (HTML stored, no SMTP), Print/PDF on email preview, auto-confirmation when training lead status flips to accepted, shared interaction visibility across all roles, multi-session auth, reusable email templates, sender-signature, Team page email panel + column sort + emails-sent column.
 - **v0.10.0** — Team Attendance feature: invite/confirm/check-in staff per event. New `user_event_attendance.json`, shared QR namespace with leads, SMS RSVP via Vonage, Reports → Team tab.
 - **v0.9.3** — QR auto-gen for manually-accepted leads + resend-confirmation.
 - **v0.9.0** — Password reset, role-wide dashboard/reports, walk-in check-ins, inert email preview, two-column Interactions, sales-rep self-claim.

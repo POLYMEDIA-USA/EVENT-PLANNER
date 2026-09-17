@@ -10,8 +10,9 @@ record: what arrived, and what this repo did about it.
 
 # 2026-09-17 — Intake: both Access Portal messages actioned in v0.11.0
 
-**Status: implemented, committed and tagged `v0.11.0`. NOT yet deployed** - the build is blocked on
-credentials (see "Blocked" below), and the `events.verifyai.net` mapping is handed back to Dave.
+**Status: implemented, tagged `v0.11.0`, deployed and verified live on revision
+`corpmarketer-00067-bk2` (2026-09-17).** One item remains with Dave: the `events.verifyai.net`
+mapping, without which the SSO half is dormant (see below).
 
 ## Received
 
@@ -53,14 +54,16 @@ credentials (see "Blocked" below), and the `events.verifyai.net` mapping is hand
   it with Dave as a re-decision. Forcing an event-floor rep to a Portal login they can't complete
   would break the primary use case of this app.
 
-## Blocked (needs Dave, not code)
+## Deploy (was blocked, now done)
 
-- **Deploy could not run.** `gcloud builds submit` as the automation SA fails with
-  `forbidden from accessing the bucket [corpmarketer-app_cloudbuild]`, and a probe shows the SA has
-  **no** grants at all on `corpmarketer-app` (`run.services.get` denied too) - contrary to
-  RMA-MANAGER's 2026-08-23 message, which said the 5 deploy roles were granted here. Meanwhile
-  `dave@parametrik.net` needs an interactive `gcloud auth login`. So v0.11.0 is tagged and pushed
-  but the live revision is still `corpmarketer-00065-ssx` (v0.10.11).
+The first attempt could not build: the automation SA had no IAM bindings at all on
+`corpmarketer-app`, contrary to RMA-MANAGER's 2026-08-23 message, and `dave@parametrik.net` needed
+an interactive reauth. After Dave re-authed, six roles were bound (the documented five plus
+`roles/serviceusage.serviceUsageConsumer`, which the global loop omits and which the misleading
+"forbidden from accessing the bucket" error is really about). Build
+`fef2e10a-2b60-423b-a762-7c3ed7a880e2` then succeeded and `corpmarketer-00067-bk2` is serving 100%
+of traffic. Live checks: the exchange endpoint rejects absent, garbage and forged-signature cookies;
+registration with bogus credentials is refused by VerifyAi's auth-api; password login unchanged.
 
 ## Handed back to Dave (not done)
 

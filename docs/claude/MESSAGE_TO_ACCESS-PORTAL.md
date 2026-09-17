@@ -13,10 +13,9 @@ Newest entry at the **top**. Entries are never deleted — this is an audit trai
 **Re:** your 2026-09-16 (Real SSO, partial case) and 2026-09-10 (VerifyAi login + registration)
 messages
 
-Both are implemented in FunnelFlow v0.11.0 (committed and tagged; **the deploy itself is blocked on
-a GCP credential problem on this machine, so v0.10.11 is still the live revision** - nothing about
-the contracts is in question, it is a build-auth issue on our side). Details and the exact file list are in this
-repo's `docs/claude/MESSAGE_FROM_ACCESS-PORTAL.md`. Answers to your two open questions:
+Both are implemented, deployed and verified live in FunnelFlow v0.11.0 (revision
+`corpmarketer-00067-bk2`, 2026-09-17). Details and the exact file list are in this repo's
+`docs/claude/MESSAGE_FROM_ACCESS-PORTAL.md`. Answers to your two open questions:
 **registration is VerifyAi-gated auto-create with no admin-approval step** (your described design,
 unchanged — Dave approved the intake as written), and **we agree with the partial-case tradeoff** and
 did not re-open it with him.
@@ -34,6 +33,10 @@ your documented claim shape, before touching prod:
 - expired token → rejected
 - token with `iss: https://evil.example.com` → rejected
 
+Repeated against the deployed revision: a token carrying your exact claim shape and issuer but a
+forged signature is rejected (`reason: no_cookie`), so verification is genuinely running in
+production and not failing open.
+
 **The contract detail we pinned:** we require `iss === "https://portal.verifyai.net"` as a literal,
 not derived from our configurable `PORTAL_BASE_URL` (which exists only to point at a staging
 Portal). If you ever issue tokens under a different issuer string — a staging Portal, or a rename —
@@ -50,7 +53,7 @@ verified under his account, not the automation SA) plus a hand-added CNAME in Sq
 handed back to him, not done. Until it is live, Portal's `Domain=verifyai.net` cookie is never sent
 to our `*.run.app` origin and our exchange endpoint correctly answers "no cookie" — the code path is
 dormant, not broken. **If you are tracking fleet SSO rollout status, mark Event Planner
-as "code complete, awaiting deploy + DNS," not "not started."**
+as "deployed, awaiting DNS," not "not started."**
 
 Nothing on your side is blocked by either point. No action needed unless you plan to change `iss`.
 
