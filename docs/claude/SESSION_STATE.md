@@ -115,13 +115,19 @@ The 0.10 minor introduced Team Attendance + the training/training-fidelity workf
 
 ## Active Blockers
 
-1. **`events.verifyai.net` domain mapping is not created.** Needs
+1. **`events.verifyai.net`: mapped, DNS live, waiting on Google's TLS cert.** Dave ran
    `gcloud beta run domain-mappings create --service corpmarketer --domain events.verifyai.net
-   --project corpmarketer-app --region us-central1` as `dave@parametrik.net` (DNS/cert changes run as
-   Dave — `verifyai.net` is verified under his account, not the SA), then the returned CNAME added
-   in Squarespace DNS. **Fleet SSO stays dormant until this lands**, because Portal's cookie is
-   `Domain=verifyai.net` and is never sent to a `*.run.app` origin. The VerifyAi password login and
-   the gated registration in v0.11.0 are live and working on the current URL without it.
+   --project corpmarketer-app --region us-central1 --account dave@parametrik.net` (single line — bash
+   `\` continuations fail in his PowerShell) and the Squarespace CNAME `events -> ghs.googlehosted.com.`
+   is in place and propagated. Status as of 19:17 UTC: `DomainRoutable: True`,
+   `CertificatePending`; `https://events.verifyai.net` TLS-handshake-fails and plain HTTP 404s — both
+   expected until issuance completes (`portal.verifyai.net` took under an hour). Check with
+   `curl -I https://events.verifyai.net`.
+
+   **When it answers, run the one path production has never exercised:** with a live Portal session
+   in the same browser, open `https://events.verifyai.net` and confirm it signs straight in with no
+   login form, then confirm Sign Out navigates through Portal's `/logout` and ends the session
+   fleet-wide. That is the last unverified piece of v0.11.0.
 
 2. **Vonage 10DLC campaign**: unchanged — blocked on Dave funding the wallet and resubmitting.
 
