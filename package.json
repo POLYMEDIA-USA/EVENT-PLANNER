@@ -1,6 +1,6 @@
 {
   "name": "funnelflow",
-  "version": "0.10.11",
+  "version": "0.11.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
+    "jose": "^6.2.12",
     "jsqr": "^1.4.0",
     "multer": "^2.1.1",
     "next": "14.2.0",

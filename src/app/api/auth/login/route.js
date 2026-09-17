@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { getUsers, saveUsers } from '@/lib/gcs';
-import { verifyPassword, generateToken } from '@/lib/auth';
+import { verifyPassword, issueSession, isVerifyAiUser } from '@/lib/auth';
+import { verifyCredentials, VerifyAiUnavailableError } from '@/lib/verifyai';
 
 export async function POST(request) {
   try {
@@ -14,21 +15,37 @@ export async function POST(request) {
     const users = await getUsers();
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-    if (!user || !verifyPassword(password, user.password_hash)) {
+    if (!user) {
       return Response.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Generate new session token. Append to session_tokens array so prior
-    // logins (other device, other browser) stay valid. Cap the array at 20
-    // entries per user — FIFO eviction — so an endlessly-reused account
-    // can't balloon the user record forever.
-    const token = generateToken();
-    user.session_token = token; // keep legacy field populated for backward compat
-    if (!Array.isArray(user.session_tokens)) user.session_tokens = [];
-    user.session_tokens.push(token);
-    if (user.session_tokens.length > 20) {
-      user.session_tokens = user.session_tokens.slice(-20);
+    // Two kinds of account: `local` (default — a password_hash in users.json)
+    // and `verifyai` (no local password; VerifyAi's auth-api is asked yes/no).
+    // Everything after this check is identical for both.
+    let ok;
+    if (isVerifyAiUser(user)) {
+      const verifyaiEmail = user.verifyai_email || user.email;
+      try {
+        ok = await verifyCredentials(verifyaiEmail, password);
+      } catch (err) {
+        if (err instanceof VerifyAiUnavailableError) {
+          console.error('VerifyAi auth-api unavailable:', err.message);
+          return Response.json(
+            { error: 'VerifyAi sign-in service is unavailable. Please try again shortly.' },
+            { status: 503 }
+          );
+        }
+        throw err;
+      }
+    } else {
+      ok = !!user.password_hash && verifyPassword(password, user.password_hash);
     }
+
+    if (!ok) {
+      return Response.json({ error: 'Invalid email or password' }, { status: 401 });
+    }
+
+    const token = issueSession(user);
     await saveUsers(users);
 
     const { password_hash, ...safeUser } = user;

@@ -40,6 +40,30 @@ export function generateUniqueQRCode(...lists) {
   return code;
 }
 
+// Mints a new session token on the given user record (caller saves users).
+// Appends to session_tokens so prior logins (other device, other browser) stay
+// valid, capped at 20 entries FIFO so an endlessly-reused account can't
+// balloon the record forever. Shared by the password login, the VerifyAi-gated
+// registration, and the Portal SSO cookie exchange so all three produce an
+// identical session shape.
+export function issueSession(user) {
+  const token = generateToken();
+  user.session_token = token; // keep legacy field populated for backward compat
+  if (!Array.isArray(user.session_tokens)) user.session_tokens = [];
+  user.session_tokens.push(token);
+  if (user.session_tokens.length > 20) {
+    user.session_tokens = user.session_tokens.slice(-20);
+  }
+  return token;
+}
+
+// A VerifyAi-authenticated account has no local password_hash — its password
+// lives in VerifyAi's auth-api. A missing auth_source means 'local', so no
+// migration of existing users.json records is needed.
+export function isVerifyAiUser(user) {
+  return user?.auth_source === 'verifyai';
+}
+
 /**
  * Returns true if the given token authenticates the user.
  * Supports both the legacy single-token (`session_token`) and the

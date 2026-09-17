@@ -5,7 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  const { user, login } = useAuth();
+  const { user, login, portalEmail } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState('login'); // 'login' or 'register'
   const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', organization_name: '' });
@@ -19,6 +19,15 @@ export default function LoginPage() {
   useEffect(() => {
     if (user) router.push('/dashboard');
   }, [user, router]);
+
+  // Signed in to VerifyAi (a valid Portal cookie) but with no FunnelFlow
+  // account yet: open the Register tab with the email already filled rather
+  // than showing a blank Sign In form.
+  useEffect(() => {
+    if (!portalEmail) return;
+    setMode('register');
+    setForm((f) => (f.email ? f : { ...f, email: portalEmail }));
+  }, [portalEmail]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,6 +73,14 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-8">
+          {portalEmail && !user && (
+            <div className="mb-6 p-3 bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm rounded-lg">
+              You&apos;re signed in to VerifyAi as <span className="font-medium">{portalEmail}</span>, but
+              you don&apos;t have a FunnelFlow account yet. Register below with those same VerifyAi
+              credentials to create one.
+            </div>
+          )}
+
           <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => { setMode('login'); setError(''); }}
@@ -138,7 +155,9 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {mode === 'login' ? 'Password' : 'VerifyAi Password'}
+              </label>
               <input
                 type="password"
                 value={form.password}
@@ -147,6 +166,11 @@ export default function LoginPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="••••••••"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                {mode === 'login'
+                  ? 'VerifyAi-linked accounts sign in with their VerifyAi dashboard password.'
+                  : 'Use your VerifyAi dashboard email and password — we verify them with VerifyAi and never store your password.'}
+              </p>
             </div>
 
             {mode === 'login' && (

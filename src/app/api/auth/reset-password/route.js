@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { getUsers, saveUsers } from '@/lib/gcs';
-import { hashPassword } from '@/lib/auth';
+import { hashPassword, isVerifyAiUser } from '@/lib/auth';
 
 export async function POST(request) {
   try {
@@ -20,6 +20,19 @@ export async function POST(request) {
 
     if (!user) {
       return Response.json({ error: 'Invalid or expired reset link' }, { status: 400 });
+    }
+
+    // Belt-and-braces: forgot-password no longer issues tokens for VerifyAi
+    // accounts, but a token minted before that account was switched over must
+    // not be usable to plant a local password on it.
+    if (isVerifyAiUser(user)) {
+      delete user.reset_token;
+      delete user.reset_token_expires;
+      await saveUsers(users);
+      return Response.json(
+        { error: 'This account signs in with VerifyAi credentials. Change your password in the VerifyAi dashboard.' },
+        { status: 400 }
+      );
     }
 
     if (new Date(user.reset_token_expires) < new Date()) {

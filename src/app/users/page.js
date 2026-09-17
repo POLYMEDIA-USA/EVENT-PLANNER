@@ -10,7 +10,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', organization_name: '', role: 'sales_rep' });
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', organization_name: '', role: 'sales_rep', auth_source: 'local' });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,14 +53,16 @@ export default function UsersPage() {
     setError('');
 
     if (editingUser) {
-      const body = { user_id: editingUser.id, full_name: form.full_name, email: form.email, phone: form.phone, organization_name: form.organization_name, role: form.role };
+      const body = { user_id: editingUser.id, full_name: form.full_name, email: form.email, phone: form.phone, organization_name: form.organization_name, role: form.role, auth_source: form.auth_source };
       if (form.password) body.password = form.password;
 
       const res = await fetch('/api/settings/users', { method: 'PUT', headers, body: JSON.stringify(body) });
       if (res.ok) { resetForm(); fetchUsers(); }
       else { const data = await res.json(); setError(data.error || 'Failed to update user'); }
     } else {
-      if (!form.password) { setError('Password is required for new users'); return; }
+      // A VerifyAi-linked account has no local password — the person signs in
+      // with their VerifyAi dashboard credentials.
+      if (form.auth_source !== 'verifyai' && !form.password) { setError('Password is required for new users'); return; }
       const res = await fetch('/api/settings/users', { method: 'POST', headers, body: JSON.stringify(form) });
       if (res.ok) { resetForm(); fetchUsers(); }
       else { const data = await res.json(); setError(data.error || 'Failed to create user'); }
@@ -69,7 +71,7 @@ export default function UsersPage() {
 
   const handleEdit = (u) => {
     setEditingUser(u);
-    setForm({ full_name: u.full_name, email: u.email, phone: u.phone || '', password: '', organization_name: u.organization_name || '', role: u.role });
+    setForm({ full_name: u.full_name, email: u.email, phone: u.phone || '', password: '', organization_name: u.organization_name || '', role: u.role, auth_source: u.auth_source || 'local' });
     setShowForm(true);
     setError('');
   };
@@ -82,7 +84,7 @@ export default function UsersPage() {
   };
 
   const resetForm = () => {
-    setForm({ full_name: '', email: '', phone: '', password: '', organization_name: '', role: 'sales_rep' });
+    setForm({ full_name: '', email: '', phone: '', password: '', organization_name: '', role: 'sales_rep', auth_source: 'local' });
     setEditingUser(null);
     setShowForm(false);
     setError('');
@@ -351,13 +353,35 @@ export default function UsersPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {editingUser ? 'New Password (leave blank to keep)' : 'Password *'}
-                </label>
-                <input type="password" value={form.password} onChange={set('password')}
-                  required={!editingUser}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sign-in Method</label>
+                <select value={form.auth_source} onChange={set('auth_source')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                  <option value="local">Local password</option>
+                  <option value="verifyai">VerifyAi credentials</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {form.auth_source === 'verifyai'
+                    ? 'This person signs in with their VerifyAi dashboard password. Nothing is stored here.'
+                    : 'Password is set and stored by FunnelFlow.'}
+                </p>
               </div>
+              {form.auth_source === 'verifyai' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <div className="w-full px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 bg-gray-50">
+                    Managed by VerifyAi
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {editingUser ? 'New Password (leave blank to keep)' : 'Password *'}
+                  </label>
+                  <input type="password" value={form.password} onChange={set('password')}
+                    required={!editingUser && form.auth_source !== 'verifyai'}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Organization *</label>
                 <input type="text" value={form.organization_name} onChange={set('organization_name')} required
@@ -438,7 +462,12 @@ export default function UsersPage() {
                       />
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{u.full_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {u.email}
+                      {u.auth_source === 'verifyai' && (
+                        <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] rounded bg-sky-100 text-sky-700 font-medium align-middle">VerifyAi</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{u.phone || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{u.organization_name}</td>
                     <td className="px-4 py-3">
@@ -488,7 +517,13 @@ export default function UsersPage() {
                       </span>
                     </div>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                      <div className="col-span-2"><dt className="text-gray-400 inline">Email:</dt> <dd className="text-gray-700 inline truncate">{u.email}</dd></div>
+                      <div className="col-span-2">
+                        <dt className="text-gray-400 inline">Email:</dt>{' '}
+                        <dd className="text-gray-700 inline truncate">{u.email}</dd>
+                        {u.auth_source === 'verifyai' && (
+                          <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] rounded bg-sky-100 text-sky-700 font-medium">VerifyAi</span>
+                        )}
+                      </div>
                       {u.phone && <div><dt className="text-gray-400 inline">Phone:</dt> <dd className="text-gray-700 inline">{u.phone}</dd></div>}
                       <div><dt className="text-gray-400 inline">Org:</dt> <dd className="text-gray-700 inline truncate">{u.organization_name}</dd></div>
                       <div className="col-span-2"><dt className="text-gray-400 inline">Created:</dt> <dd className="text-gray-700 inline">{new Date(u.created_at).toLocaleDateString()}</dd></div>

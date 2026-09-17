@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { getUsers, saveUsers, getSettings } from '@/lib/gcs';
+import { isVerifyAiUser } from '@/lib/auth';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
@@ -14,9 +15,19 @@ export async function POST(request) {
     const users = await getUsers();
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-    // Always return success to avoid revealing whether email exists
+    // Always return the same message to avoid revealing whether the email
+    // exists. The VerifyAi sentence is part of that fixed message rather than
+    // a separate branch, so a VerifyAi-backed account still gets told where to
+    // go without the response confirming the account is there at all.
+    const GENERIC = 'If that email exists, a reset link has been sent. Accounts that sign in with VerifyAi credentials must be reset from the VerifyAi dashboard instead.';
+
     if (!user) {
-      return Response.json({ message: 'If that email exists, a reset link has been sent.' });
+      return Response.json({ message: GENERIC });
+    }
+
+    // No local password to reset — VerifyAi owns this account's credential.
+    if (isVerifyAiUser(user)) {
+      return Response.json({ message: GENERIC });
     }
 
     // Generate reset token (16 bytes, base64url) with 1-hour expiry
@@ -31,7 +42,7 @@ export async function POST(request) {
     const settings = await getSettings();
     if (!settings.smtp_host || !settings.smtp_user || !settings.smtp_pass) {
       console.error('SMTP not configured — cannot send password reset email');
-      return Response.json({ message: 'If that email exists, a reset link has been sent.' });
+      return Response.json({ message: GENERIC });
     }
 
     const transporter = nodemailer.createTransport({
@@ -73,7 +84,7 @@ export async function POST(request) {
       console.error('Failed to send reset email:', err.message);
     }
 
-    return Response.json({ message: 'If that email exists, a reset link has been sent.' });
+    return Response.json({ message: GENERIC });
   } catch (err) {
     console.error('Forgot password error:', err);
     return Response.json({ error: 'Something went wrong' }, { status: 500 });

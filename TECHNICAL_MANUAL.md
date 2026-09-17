@@ -1,7 +1,7 @@
 # FunnelFlow - Technical Manual
 
-**App Version:** 0.10.11
-**Last Updated:** 2026-04-23
+**App Version:** 0.11.0
+**Last Updated:** 2026-09-17
 
 ---
 
@@ -218,6 +218,8 @@ Google Cloud Storage (corpmarketer-bucket)
 | `PORT` | `3000` | Server port |
 | `HOSTNAME` | `0.0.0.0` | Server bind address |
 | `NEXT_TELEMETRY_DISABLED` | `1` | Disable Next.js telemetry |
+| `VERIFYAI_AUTH_API_URL` | `https://verifyai-auth-api-production-143845647654.us-central1.run.app` | VerifyAi auth-api base URL, used as a yes/no credential oracle (section 5). Public Cloud Run URL, not a secret. Override only to point at VerifyAi staging. |
+| `PORTAL_BASE_URL` | `https://portal.verifyai.net` | Access Portal base URL - its `/.well-known/jwks.json` is fetched to verify fleet SSO cookies, and its `/logout` ends the fleet session (section 5). Override only to point at a staging Portal. |
 
 ### next.config.mjs
 
@@ -351,14 +353,99 @@ Write Request
 | Session token | 32 bytes | base64url | User authentication |
 | RSVP token | 16 bytes | base64url | Invitation responses |
 
-### Authentication Flow
+### Account Sign-In Sources (`auth_source`)
+
+Every user record declares how its password is checked. A **missing** field
+means `local`, so no migration of existing `users.json` records was needed.
+
+| `auth_source` | Credential store | `password_hash` | Set by |
+|---------------|------------------|-----------------|--------|
+| `local` (default) | FunnelFlow `users.json` | Yes (PBKDF2-SHA512) | Admin create/edit with "Sign-in Method: Local password" |
+| `verifyai` | VerifyAi `auth-api` | **None** | Self-registration (always), or admin choosing "VerifyAi credentials" |
+
+VerifyAi's auth-api is used **purely as a credential oracle**
+(`src/lib/verifyai.js`): `verifyCredentials(email, password)` POSTs to
+`/api/v1/auth/login` with a 5s timeout and returns true on 200, false on 4xx,
+and throws `VerifyAiUnavailableError` on network/5xx so the login route can
+answer "sign-in service unavailable" (503) instead of the misleading "invalid
+email or password" (401). VerifyAi's own JWT is never stored, forwarded, or
+verified - those tokens are HS256 on a shared secret with no JWKS, so
+distributing that secret to every internal app would be a real blast-radius
+mistake. FunnelFlow keeps minting its own local session tokens either way, so
+per-request bearer validation is identical for both account kinds.
+
+**Break-glass rule:** at least one `admin` must always keep
+`auth_source: 'local'` with a real `password_hash`. `PUT /api/settings/users`
+refuses a switch to `verifyai` that would leave zero local admins - a VerifyAi
+outage must never lock every admin out of every internal tool at once.
+
+Password reset applies to local accounts only. `/api/auth/forgot-password`
+issues no token for a `verifyai` account (and says so in its fixed,
+non-enumerating response), and `/api/auth/reset-password` rejects a token that
+resolves to one.
+
+### Fleet Single Sign-On (Access Portal)
+
+Access Portal (`portal.verifyai.net`) is the identity provider for the six
+internal VerifyAi tools. A logged-in Portal user's browser carries a
+`verifyai_session` cookie (`Domain=verifyai.net`, HttpOnly, Secure,
+SameSite=Lax): a ~30-minute Ed25519-signed JWT with payload
+`{sub, email, is_admin, iss, iat, exp}`. Portal publishes only the **public**
+key at `/.well-known/jwks.json`; `src/lib/portal-session.js` verifies tokens
+locally via jose's `createRemoteJWKSet()` (key fetched once and cached - no
+callback to Portal per request) with a required issuer of
+`https://portal.verifyai.net`.
+
+**FunnelFlow is a deliberate partial case of the fleet contract.** The other
+five siblings force an unauthenticated visitor to redirect to Portal's login.
+FunnelFlow does **not**: its whole point is serving reps who arrive at a live
+event with no account anywhere, and Portal is admin-provisioned with no
+self-registration, so a forced redirect would be a dead end. Here the Portal
+cookie is an accelerator only:
+
+```
+1. AuthProvider: no cm_token in localStorage
+       |
+2. Client: POST /api/auth/portal-session  (same-origin, cookie sent automatically)
+       |
+3. Server: verify verifyai_session against Portal's JWKS (issuer-checked)
+       |      invalid/absent/expired -> 401 reason='no_cookie'
+       |
+4. Server: find LOCAL user by the token's email (case-insensitive)
+       |      no match -> 401 reason='no_local_account' + portal_email
+       |      (NO auto-provisioning - Portal's cookie proves identity, not authorization)
+       |
+5. Server: mint an ordinary local session token (issueSession)
+       |      -> { user, token, sso: true, portal_url }
+       |
+6. Client: stores the token exactly as a password login would, plus
+           localStorage.cm_sso_portal = portal_url
+```
+
+Any non-200 is a normal outcome, not an error: the client falls through to
+FunnelFlow's own login/registration page. On `no_local_account` the login page
+opens the Register tab with the Portal email prefilled and says why.
+
+The cookie is consumed in exactly **one** place (`POST /api/auth/portal-session`),
+which exchanges it for a normal bearer token - so no route file outside that one
+has a second auth path to keep in sync.
+
+**Sign Out** is source-aware. `logout()` returns a fleet logout URL when
+`cm_sso_portal` is set, and AppShell performs a real browser navigation to
+`https://portal.verifyai.net/logout?return_to=<our origin>`. Clearing only
+local state would leave the person signed in across every sibling tool and
+straight back in here on the next page load. A session that began at
+FunnelFlow's own login form logs out locally as before.
+
+### Authentication Flow (local / VerifyAi password login)
 
 ```
 1. Client: POST /api/auth/login { email, password }
        │
 2. Server: Find user by email (case-insensitive) in users.json
        │
-3. Server: Verify password with PBKDF2-SHA512
+3. Server: auth_source 'local'    -> verify password with PBKDF2-SHA512
+           auth_source 'verifyai' -> ask VerifyAi auth-api (yes/no); 503 if unreachable
        │
 4. Server: Generate 32-byte session token, store in user record
        │
@@ -374,7 +461,13 @@ Write Request
 
 ### Client-Side Auth (AuthProvider.js)
 
-- Context provides: `{ user, loading, login, logout, checkAuth }`
+- Context provides: `{ user, loading, login, logout, checkAuth, portalEmail }`
+- On mount with no `cm_token`, attempts the Portal SSO exchange above; also
+  retried once when a stale `cm_token` is rejected by `/api/auth/me`
+- `portalEmail` is a verified Portal identity with no FunnelFlow account yet
+  (drives the login page's "register with these credentials" banner)
+- `logout()` clears local state and **returns** the fleet logout URL (or
+  `null`); the caller navigates
 - Token stored in `localStorage.cm_token`
 - User object cached in `localStorage.cm_user`
 - Offline fallback: uses cached user if `/api/auth/me` fails
@@ -527,11 +620,12 @@ Every request must include: `Authorization: Bearer {session_token}`
 
 | Method | Endpoint | Auth | Role | Description |
 |--------|----------|------|------|-------------|
-| POST | `/api/auth/login` | No | Any | Login with email/password, returns token |
-| POST | `/api/auth/register` | No | Any | Register new user account |
+| POST | `/api/auth/login` | No | Any | Login with email/password, returns token. Checks PBKDF2 hash for `auth_source='local'`, VerifyAi auth-api for `'verifyai'`. 401 invalid, **503 VerifyAi unreachable** |
+| POST | `/api/auth/register` | No | Any | **VerifyAi-gated** self-registration: the submitted email+password must be valid VerifyAi dashboard credentials, then a local account is auto-created (`auth_source='verifyai'`, no `password_hash`) and a session minted. 401 rejected credentials, 409 email already registered, 503 VerifyAi unreachable |
+| POST | `/api/auth/portal-session` | Cookie | Any | Exchanges an Access Portal `verifyai_session` cookie for a local session token. 401 `reason='no_cookie'` / `'no_local_account'` are normal fall-through outcomes, not errors. Never auto-provisions |
 | GET | `/api/auth/me` | Yes | Any | Get current user from token |
-| POST | `/api/auth/forgot-password` | No | Any | Request password reset; emails reset link (1-hour token) |
-| POST | `/api/auth/reset-password` | No | Any | Submit new password with reset token |
+| POST | `/api/auth/forgot-password` | No | Any | Request password reset; emails reset link (1-hour token). No-ops for `auth_source='verifyai'` accounts |
+| POST | `/api/auth/reset-password` | No | Any | Submit new password with reset token. Rejects `auth_source='verifyai'` accounts (400) |
 
 #### Team Attendance
 
@@ -629,8 +723,8 @@ Tracks which users (staff) are working each event. Records live in `user_event_a
 | GET | `/api/settings` | Yes | Admin | Get app settings |
 | POST | `/api/settings` | Yes | Admin | Update app settings |
 | GET | `/api/settings/users` | Yes | Admin | List all users |
-| POST | `/api/settings/users` | Yes | Admin | Create user |
-| PUT | `/api/settings/users` | Yes | Admin | Update user |
+| POST | `/api/settings/users` | Yes | Admin | Create user. `auth_source='verifyai'` (+ optional `verifyai_email`) creates a VerifyAi-linked account and needs no `password`; otherwise `password` is required |
+| PUT | `/api/settings/users` | Yes | Admin | Update user. `auth_source` switches sign-in method both ways (to `local` requires a password; to `verifyai` drops `password_hash` and is refused if it would leave no local admin). Sending `password` for a VerifyAi account returns 400 |
 | DELETE | `/api/settings/users` | Yes | Admin | Delete user |
 
 #### Other
@@ -1004,7 +1098,9 @@ gcloud storage cat gs://corpmarketer-bucket/customers.json --project=corpmarkete
 |-------|------|-------------|
 | `id` | string (UUID) | Unique identifier |
 | `email` | string | Login email (case-insensitive matching) |
-| `password_hash` | string | PBKDF2-SHA512 hash (`salt:hash` format) |
+| `password_hash` | string | PBKDF2-SHA512 hash (`salt:hash` format). Absent on `auth_source='verifyai'` accounts |
+| `auth_source` | string | `local` (default when absent) or `verifyai` - which credential store checks this user's password (section 5) |
+| `verifyai_email` | string | VerifyAi dashboard email used for the credential check; defaults to `email` |
 | `session_token` | string | Active session token (base64url) |
 | `full_name` | string | Display name |
 | `phone` | string | Phone number |

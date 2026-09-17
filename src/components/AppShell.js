@@ -33,7 +33,15 @@ export default function AppShell({ children }) {
   if (!user) return null;
 
   const handleLogout = () => {
-    logout();
+    // A session that arrived on the shared verifyai.net Portal cookie has to
+    // be ended at Portal — clearing only our own state would leave the person
+    // signed in across every sibling tool, and straight back in here on the
+    // next page load.
+    const portalLogoutUrl = logout();
+    if (portalLogoutUrl) {
+      window.location.href = portalLogoutUrl;
+      return;
+    }
     router.push('/');
   };
 

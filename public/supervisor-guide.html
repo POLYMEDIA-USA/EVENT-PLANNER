@@ -237,6 +237,18 @@
     <p><strong>Login URL:</strong> <code style="background:#f1f5f9;padding:2px 8px;border-radius:5px;">https://your-app-url.run.app</code></p>
   </div>
 
+  <!-- What's New in v0.11.0 -->
+  <div class="card" style="background:#f0f9ff;border-left:4px solid #0284c7;">
+    <h3 style="color:#075985;margin-top:0;">What's New in v0.11.0 &mdash; VerifyAi Sign-In</h3>
+    <ul style="margin:10px 0 0 20px;line-height:1.8;">
+      <li><strong>Sign in with your VerifyAi account.</strong> FunnelFlow accounts can now be linked to your VerifyAi dashboard login, so you use the same email and password here as you do there. Your Admin decides which accounts are linked; nothing changes for accounts that still use a FunnelFlow password.</li>
+      <li><strong>Already signed in to another VerifyAi tool?</strong> If you are signed in to the VerifyAi Access Portal in the same browser and your email matches a FunnelFlow account, FunnelFlow signs you in automatically &mdash; no second login.</li>
+      <li><strong>Registering yourself now needs real VerifyAi credentials.</strong> The Register tab still takes about twenty seconds, but the email and password you enter must be your actual VerifyAi dashboard credentials. FunnelFlow checks them with VerifyAi and never stores your password.</li>
+      <li><strong>Sign Out ends the whole session.</strong> If you arrived through the Access Portal, Sign Out now signs you out of every VerifyAi internal tool at once, not just FunnelFlow.</li>
+      <li><strong>Forgot Password is for FunnelFlow passwords only.</strong> If your account is linked to VerifyAi, change your password in the VerifyAi dashboard instead.</li>
+    </ul>
+  </div>
+
   <!-- What's New in v0.10.0 -->
   <div class="card" style="background:#ecfdf5;border-left:4px solid #10b981;">
     <h3 style="color:#065f46;margin-top:0;">What's New in v0.10.0</h3>
@@ -270,6 +282,16 @@
       <li>Enter your <strong>Email / Username</strong> and <strong>Password</strong> (provided by your Admin).</li>
       <li>Click <strong>"Sign In"</strong>.</li>
     </ol>
+
+    <h3>Signing In With VerifyAi</h3>
+    <p>If your Admin linked your account to VerifyAi (the Users page shows a <strong>VerifyAi</strong>
+    tag next to the email), use your <strong>VerifyAi dashboard</strong> email and password here.
+    Everything after sign-in is identical. If the VerifyAi sign-in service is briefly unreachable,
+    FunnelFlow says so rather than claiming your password is wrong.</p>
+    <p>If you are already signed in to the VerifyAi <strong>Access Portal</strong> in the same
+    browser, FunnelFlow signs you in automatically when your email matches a FunnelFlow account, and
+    <strong>Sign Out</strong> then ends your session across every VerifyAi internal tool at once.</p>
+
     <div class="callout info">
       <span class="callout-icon">🔑</span>
       <div>Your account is created by an Admin. Contact your Admin if you need your password reset or role changed.</div>
@@ -603,7 +625,7 @@
 </div>
 
 <footer>
-  <p>FunnelFlow v0.10.11 &nbsp;·&nbsp; Powered by VerifyAI &nbsp;·&nbsp; &copy; Polymedia</p>
+  <p>FunnelFlow v0.11.0 &nbsp;·&nbsp; Powered by VerifyAI &nbsp;·&nbsp; &copy; Polymedia</p>
 </footer>
 
 </body>
