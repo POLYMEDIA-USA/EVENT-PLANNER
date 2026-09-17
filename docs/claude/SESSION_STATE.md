@@ -115,19 +115,19 @@ The 0.10 minor introduced Team Attendance + the training/training-fidelity workf
 
 ## Active Blockers
 
-1. **`events.verifyai.net`: mapped, DNS live, waiting on Google's TLS cert.** Dave ran
-   `gcloud beta run domain-mappings create --service corpmarketer --domain events.verifyai.net
-   --project corpmarketer-app --region us-central1 --account dave@parametrik.net` (single line — bash
-   `\` continuations fail in his PowerShell) and the Squarespace CNAME `events -> ghs.googlehosted.com.`
-   is in place and propagated. Status as of 19:17 UTC: `DomainRoutable: True`,
-   `CertificatePending`; `https://events.verifyai.net` TLS-handshake-fails and plain HTTP 404s — both
-   expected until issuance completes (`portal.verifyai.net` took under an hour). Check with
-   `curl -I https://events.verifyai.net`.
+1. **`events.verifyai.net` is fully live (2026-09-17).** Mapping created by Dave, Squarespace CNAME
+   `events -> ghs.googlehosted.com.` propagated, TLS cert issued ~26 min after the mapping.
+   `Ready` / `CertificateProvisioned` / `DomainRoutable` all `True`. Verified on the new origin:
+   `GET /` 200 with `<title>FunnelFlow</title>`, `POST /api/auth/portal-session` (no cookie) 401
+   `no_cookie`, `POST /api/auth/register` with bogus credentials 401 from VerifyAi's auth-api.
 
-   **When it answers, run the one path production has never exercised:** with a live Portal session
-   in the same browser, open `https://events.verifyai.net` and confirm it signs straight in with no
-   login form, then confirm Sign Out navigates through Portal's `/logout` and ends the session
-   fleet-wide. That is the last unverified piece of v0.11.0.
+   **The one remaining unverified piece needs a browser and Dave's Portal login** (no session here
+   can hold a real Portal cookie): sign in to `https://portal.verifyai.net`, then open
+   `https://events.verifyai.net` in the same browser — it should land on the dashboard with no login
+   form if that Portal email matches a FunnelFlow account, or on the Register tab with the email
+   prefilled and an explanatory banner if it does not. Then confirm Sign Out navigates through
+   Portal's `/logout` and ends the session across the other internal tools. Report the result in
+   `MESSAGE_TO_ACCESS-PORTAL.md` — they were promised it.
 
 2. **Vonage 10DLC campaign**: unchanged — blocked on Dave funding the wallet and resubmitting.
 
