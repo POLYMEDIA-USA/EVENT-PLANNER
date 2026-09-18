@@ -115,21 +115,41 @@ The 0.10 minor introduced Team Attendance + the training/training-fidelity workf
 
 ## Active Blockers
 
-1. **`events.verifyai.net` is fully live (2026-09-17).** Mapping created by Dave, Squarespace CNAME
-   `events -> ghs.googlehosted.com.` propagated, TLS cert issued ~26 min after the mapping.
-   `Ready` / `CertificateProvisioned` / `DomainRoutable` all `True`. Verified on the new origin:
-   `GET /` 200 with `<title>FunnelFlow</title>`, `POST /api/auth/portal-session` (no cookie) 401
-   `no_cookie`, `POST /api/auth/register` with bogus credentials 401 from VerifyAi's auth-api.
+1. ~~`events.verifyai.net`~~ — **DONE and fully verified 2026-09-17.** Mapping created by Dave,
+   Squarespace CNAME `events -> ghs.googlehosted.com.` propagated, TLS cert issued ~26 min later.
+   `Ready` / `CertificateProvisioned` / `DomainRoutable` all `True`, `GET /` 200 with
+   `<title>FunnelFlow</title>`.
 
-   **The one remaining unverified piece needs a browser and Dave's Portal login** (no session here
-   can hold a real Portal cookie): sign in to `https://portal.verifyai.net`, then open
-   `https://events.verifyai.net` in the same browser — it should land on the dashboard with no login
-   form if that Portal email matches a FunnelFlow account, or on the Register tab with the email
-   prefilled and an explanatory banner if it does not. Then confirm Sign Out navigates through
-   Portal's `/logout` and ends the session across the other internal tools. Report the result in
-   `MESSAGE_TO_ACCESS-PORTAL.md` — they were promised it.
+   **v0.11.0 now has no unverified paths.** The last one — a real Portal cookie matching a local
+   account — was closed by the Access Portal session, which POSTed a fresh `verifyai_session` cookie
+   to `https://events.verifyai.net/api/auth/portal-session` and got **200 `sso:true`, matched to
+   `dave@verifyai.net`'s real admin account**, confirmed structurally without printing the token.
+   That is a peer session's report rather than this session's own observation, but it is specific and
+   it is the exact call this session could not safely make from here (a 200 mints a live admin
+   session token). Their first attempt hit `GET /api/auth/me` and got a generic 401; that endpoint is
+   bearer-only by design and never reads the cookie — see `MESSAGE_TO_ACCESS-PORTAL.md`.
 
 2. **Vonage 10DLC campaign**: unchanged — blocked on Dave funding the wallet and resubmitting.
+
+## Fleet subdomain state (measured 2026-09-17, for whoever needs it next)
+
+All six internal tools were meant to move onto `verifyai.net` subdomains. Measured directly, not
+taken from any repo's notes:
+
+| Subdomain | CNAME -> ghs | HTTPS |
+|---|---|---|
+| `portal.verifyai.net` | yes | 200 |
+| `anydesk.verifyai.net` | yes | 200 |
+| `rma.verifyai.net` | yes | 200 |
+| `backoffice.verifyai.net` | yes | 200 |
+| `events.verifyai.net` | yes | 200 |
+| `onboarding.verifyai.net` | **no record at all** | does not resolve |
+
+**Correction to what this session told Access Portal earlier:** the relayed claim that RMA-MANAGER's
+`rma` CNAME was still pending came from that repo's own committed SESSION_STATE and is **stale** —
+`rma.verifyai.net` serves 200 today. Portal caught that. Lesson worth keeping: a sibling's committed
+notes are a lead, not a fact; one `curl -I` settles it. Onboarding Tracker is the only one genuinely
+missing its DNS record.
 
 ## Resolved 2026-09-17 — the deploy credential blocker
 
