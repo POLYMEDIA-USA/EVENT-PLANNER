@@ -131,10 +131,10 @@ The 0.10 minor introduced Team Attendance + the training/training-fidelity workf
 
 2. **Vonage 10DLC campaign**: unchanged — blocked on Dave funding the wallet and resubmitting.
 
-## Fleet subdomain state (measured 2026-09-17, for whoever needs it next)
+## Fleet subdomain state (measured 2026-09-17 — all six live, nothing outstanding)
 
-All six internal tools were meant to move onto `verifyai.net` subdomains. Measured directly, not
-taken from any repo's notes:
+All six internal tools are on `verifyai.net` subdomains. Measured directly with `nslookup` +
+`curl -I`, not taken from any repo's notes:
 
 | Subdomain | CNAME -> ghs | HTTPS |
 |---|---|---|
@@ -143,13 +143,29 @@ taken from any repo's notes:
 | `rma.verifyai.net` | yes | 200 |
 | `backoffice.verifyai.net` | yes | 200 |
 | `events.verifyai.net` | yes | 200 |
-| `onboarding.verifyai.net` | **no record at all** | does not resolve |
+| `tracker.verifyai.net` | yes | 200 |
 
-**Correction to what this session told Access Portal earlier:** the relayed claim that RMA-MANAGER's
-`rma` CNAME was still pending came from that repo's own committed SESSION_STATE and is **stale** —
-`rma.verifyai.net` serves 200 today. Portal caught that. Lesson worth keeping: a sibling's committed
-notes are a lead, not a fact; one `curl -I` settles it. Onboarding Tracker is the only one genuinely
-missing its DNS record.
+**No DNS work outstanding for anyone.**
+
+### Two corrections this session had to make to its own fleet claims
+
+Both were relayed to Access Portal before being checked, and both were wrong. The lesson is the
+same each time: **measure; a repo's committed notes (or another session's summary) are a lead, not a
+fact.**
+
+1. **"RMA-MANAGER's `rma` CNAME is still pending"** — false. That came from RMA-MANAGER's own
+   SESSION_STATE, which is stale; `rma.verifyai.net` serves 200 today.
+2. **"`onboarding.verifyai.net` is the only DNS gap, worth clearing in the same sitting"** — false,
+   and **acting on it would have caused real damage.** Onboarding Tracker's subdomain is
+   `tracker.verifyai.net` (live, 200); `onboarding.verifyai.net` was abandoned for web use because it
+   carries a live `MX 10 inbound-smtp.us-east-1.amazonaws.com` that `production.verifyai.net`'s
+   dashboard depends on for inbound email. A CNAME cannot coexist with any other record at the same
+   name, so adding one there would have been invalid at best and would have broken inbound email at
+   worst. Verified here: the MX is live, and `tracker.verifyai.net` resolves to `ghs.googlehosted.com`
+   and returns 200.
+
+   **Never propose a DNS record on a name without first checking what already exists there**
+   (`nslookup -type=ANY <name>`). A missing A/CNAME does not mean an unused name.
 
 ## Resolved 2026-09-17 — the deploy credential blocker
 
