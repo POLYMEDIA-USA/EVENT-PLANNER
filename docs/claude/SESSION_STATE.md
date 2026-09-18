@@ -66,21 +66,22 @@ Implements both outstanding Access Portal contracts. Intake record and our repli
   `README.md`** with release notes, **new `.env.example`**, DEPLOYMENT_RULES (automation-SA
   `--account`, a real rollback recipe, specific post-deploy verification).
 
-### What was verified (and what wasn't)
+### What was verified, and by whom
 
 - Portal's live JWKS returns a real Ed25519 document.
-- Against a stand-in Portal signing with Portal's documented claim shape: a valid token verifies
-  (then correctly falls through as `no_local_account`), an expired token is rejected, and a
-  wrong-issuer token is rejected.
-- `npm run build` clean; bad-password login still 401; the exchange route answers `no_cookie` with
-  no cookie and with a garbage cookie.
-- **Not** exercised: the happy path where a verified Portal email matches a real local user. It
-  reuses `issueSession()` (same code as password login) and testing it against the prod bucket would
-  have minted a live admin session token. Post-deploy it stays unexercised for a different reason:
-  it needs a real Portal cookie, which needs the DNS mapping. See the live-verification block above
-  for what production actually proves today.
+- Against a stand-in Portal signing with Portal's documented claim shape: a valid token verifies, an
+  expired token is rejected, and a wrong-issuer token is rejected.
+- Live on `corpmarketer-00067-bk2`, both origins: `no_cookie` for absent, garbage and
+  forged-signature cookies; gated registration refused by VerifyAi's auth-api; password login
+  unchanged. Full transcript in the block above.
+- **The happy path is closed too.** The Access Portal session POSTed a fresh real `verifyai_session`
+  cookie to `https://events.verifyai.net/api/auth/portal-session` and got **200 `sso:true`, matched
+  to `dave@verifyai.net`'s real admin account** (confirmed structurally, token not printed). That is
+  a peer session's observation, not this one's: a 200 there mints a live admin session token, which
+  is why this session deliberately did not make that call from a headless context.
+- **So v0.11.0 has no unverified paths.**
 
-## Recent Releases## Recent Releases — v0.10.x train
+## Recent Releases — v0.10.x train
 
 The 0.10 minor introduced Team Attendance + the training/training-fidelity workflow that grew out of HSPA 2026 prep. Patches in order:
 
@@ -115,21 +116,15 @@ The 0.10 minor introduced Team Attendance + the training/training-fidelity workf
 
 ## Active Blockers
 
-1. ~~`events.verifyai.net`~~ — **DONE and fully verified 2026-09-17.** Mapping created by Dave,
-   Squarespace CNAME `events -> ghs.googlehosted.com.` propagated, TLS cert issued ~26 min later.
-   `Ready` / `CertificateProvisioned` / `DomainRoutable` all `True`, `GET /` 200 with
-   `<title>FunnelFlow</title>`.
+1. **Vonage 10DLC campaign** — the only genuinely open item on this project. Blocked on Dave funding
+   the Vonage wallet and re-running the submission; all copy answers are saved in
+   [VONAGE_10DLC_CAMPAIGN_ANSWERS.md](VONAGE_10DLC_CAMPAIGN_ANSWERS.md). Until the campaign is
+   approved, `/api/team/sms` returns Vonage status=0 (success) while US carriers silently drop the
+   message. The code is correct; this is purely a carrier-paperwork gate.
 
-   **v0.11.0 now has no unverified paths.** The last one — a real Portal cookie matching a local
-   account — was closed by the Access Portal session, which POSTed a fresh `verifyai_session` cookie
-   to `https://events.verifyai.net/api/auth/portal-session` and got **200 `sso:true`, matched to
-   `dave@verifyai.net`'s real admin account**, confirmed structurally without printing the token.
-   That is a peer session's report rather than this session's own observation, but it is specific and
-   it is the exact call this session could not safely make from here (a 200 mints a live admin
-   session token). Their first attempt hit `GET /api/auth/me` and got a generic 401; that endpoint is
-   bearer-only by design and never reads the cookie — see `MESSAGE_TO_ACCESS-PORTAL.md`.
-
-2. **Vonage 10DLC campaign**: unchanged — blocked on Dave funding the wallet and resubmitting.
+**Closed this session:** `events.verifyai.net` (mapped by Dave, CNAME propagated, cert issued ~26
+min later, `Ready` / `CertificateProvisioned` / `DomainRoutable` all `True`) and the deploy
+credential blocker (see below). Fleet SSO is live, not pending.
 
 ## Fleet subdomain state (measured 2026-09-17 — all six live, nothing outstanding)
 
@@ -193,14 +188,27 @@ stream build logs without project Viewer. The build is running regardless — po
 ## Active work / not yet done
 
 - **Vonage 10DLC campaign**: blocked on Dave funding + resubmitting. All copy answers are saved in [VONAGE_10DLC_CAMPAIGN_ANSWERS.md](VONAGE_10DLC_CAMPAIGN_ANSWERS.md).
-- **HSPA 2026 training (Monday April 27)**: training tools (v0.10.6 generate, v0.10.7 simulate, v0.10.8 auto-confirm, v0.10.10 in_the_room/alerts, v0.10.11 training-tagged alerts) are all live. Roleplay scripts mentioned in the suggestions list have not been written yet.
+- **HSPA 2026 training** (was Monday 2026-04-27, now past): the training tools (v0.10.6 generate,
+  v0.10.7 simulate, v0.10.8 auto-confirm, v0.10.10 in_the_room/alerts, v0.10.11 training-tagged
+  alerts) are all live and were used. The roleplay scripts from the old suggestions list were never
+  written — only worth picking up if Dave asks for another training run.
 
 ## Next session quick-start
 
-v0.11.0 is live and verified (revision `corpmarketer-00067-bk2`). Fleet SSO code is deployed but
-dormant until `events.verifyai.net` is mapped — that is the top open item.
+**Nothing is blocked or half-finished.** v0.11.0 is live and fully verified on revision
+`corpmarketer-00067-bk2`; fleet SSO is active on `https://events.verifyai.net` (all six fleet
+subdomains are live — see the table above). The only open item on this project is the Vonage 10DLC
+campaign, which needs Dave, not code.
 
-If Dave reports a Settings save 403 → recommend sign-out/in (multi-session edge case, not a bug).
-If Dave reports SMTP failures with `535-5.7.8` → App Password regen on `rma.manager`.
-If Dave reports SMS fails → Vonage 10DLC campaign approval (out-of-band).
-For training-related asks → v0.10.6-v0.10.11 are all in production, work end-to-end.
+Triage shortcuts:
+- Settings save 403 —> recommend sign-out/in (multi-session edge case, not a bug).
+- SMTP failures with `535-5.7.8` —> App Password regen on `rma.manager`.
+- SMS fails —> Vonage 10DLC campaign approval (out-of-band).
+- Training asks —> v0.10.6-v0.10.11 are in production and work end to end.
+- "I'm logged into Portal but FunnelFlow shows the login form" —> that is correct behaviour when
+  the Portal email has no FunnelFlow account; the Register tab will be pre-filled. Check
+  `POST /api/auth/portal-session` (`reason: no_local_account` vs `no_cookie`), never
+  `/api/auth/me` — that endpoint is bearer-only by design and never reads the cookie.
+- Anything touching a shared contract (Portal's `iss`, VerifyAi's auth-api path, shared DNS)
+  —> read `MESSAGE_FROM_*`/`MESSAGE_TO_*` in this folder first, and **measure before relaying**
+  (this session relayed two wrong fleet claims taken from sibling notes; see the corrections above).
