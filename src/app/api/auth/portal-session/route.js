@@ -26,7 +26,14 @@ export async function POST(request) {
 
     const email = String(identity.email).toLowerCase();
     const users = await getUsers();
-    const user = users.find(u => u.email.toLowerCase() === email);
+    // Match the Portal identity to a local account. An exact account-email match
+    // wins; otherwise fall back to verifyai_email, the explicit "this FunnelFlow
+    // account belongs to that VerifyAi identity" link. People whose FunnelFlow
+    // account was created under one address (@parametrik.net) but who sign in to
+    // VerifyAi under another (@verifyai.net) are only reachable via that link —
+    // without it their Portal cookie looks like a stranger's.
+    const user = users.find(u => u.email.toLowerCase() === email)
+      || users.find(u => (u.verifyai_email || '').toLowerCase() === email);
 
     // Portal's cookie proves identity, not authorization — deliberately no
     // auto-provisioning. An unknown Portal user lands on our registration

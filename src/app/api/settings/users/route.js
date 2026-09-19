@@ -11,6 +11,17 @@ async function authenticate(request) {
   return users.find(u => userMatchesToken(u, token)) || null;
 }
 
+// A Portal identity resolves to at most one local account, so a verifyai_email
+// must not collide with another account's login email or verifyai_email —
+// otherwise which account an SSO sign-in lands on depends on array order.
+function verifyAiEmailTaken(users, value, selfId) {
+  const v = (value || '').toLowerCase();
+  if (!v) return false;
+  return users.some(u => u.id !== selfId && (
+    u.email.toLowerCase() === v || (u.verifyai_email || '').toLowerCase() === v
+  ));
+}
+
 export async function GET(request) {
   try {
     const user = await authenticate(request);
@@ -48,6 +59,10 @@ export async function POST(request) {
     if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
       return Response.json({ error: 'Email already exists' }, { status: 409 });
     }
+    const newVerifyAiEmail = useVerifyAi ? (verifyai_email || email) : verifyai_email;
+    if (verifyAiEmailTaken(users, newVerifyAiEmail, null)) {
+      return Response.json({ error: 'That VerifyAi email is already linked to another user' }, { status: 409 });
+    }
 
     // Find or create organization
     let organizations = await getOrganizations();
@@ -70,7 +85,14 @@ export async function POST(request) {
       created_at: new Date().toISOString(),
       ...(useVerifyAi
         ? { auth_source: 'verifyai', verifyai_email: (verifyai_email || email).toLowerCase() }
-        : { auth_source: 'local', password_hash: hashPassword(password) }),
+        // A local-password account may still carry a verifyai_email: that field
+        // is an identity link for single sign-on, independent of which store
+        // checks the password.
+        : {
+            auth_source: 'local',
+            password_hash: hashPassword(password),
+            ...(verifyai_email ? { verifyai_email: verifyai_email.toLowerCase() } : {}),
+          }),
     };
 
     users.push(user);
@@ -128,15 +150,20 @@ export async function PUT(request) {
           { status: 400 }
         );
       }
+      const nextVerifyAiEmail = (verifyai_email || email || users[idx].email).toLowerCase();
+      if (verifyAiEmailTaken(users, nextVerifyAiEmail, user_id)) {
+        return Response.json({ error: 'That VerifyAi email is already linked to another user' }, { status: 409 });
+      }
       users[idx].auth_source = 'verifyai';
-      users[idx].verifyai_email = (verifyai_email || email || users[idx].email).toLowerCase();
+      users[idx].verifyai_email = nextVerifyAiEmail;
       delete users[idx].password_hash;
     } else if (auth_source === 'local') {
       if (!password && !users[idx].password_hash) {
         return Response.json({ error: 'A password is required when switching this user to local sign-in' }, { status: 400 });
       }
       users[idx].auth_source = 'local';
-      delete users[idx].verifyai_email;
+      // verifyai_email is deliberately kept: it is an identity link for SSO, not
+      // a credential. Clear it by sending an explicit empty verifyai_email.
     } else if (password && isVerifyAiUser(users[idx])) {
       // No local password exists to change on a VerifyAi account — silently
       // hashing one here would look like it worked and change nothing.
@@ -144,6 +171,17 @@ export async function PUT(request) {
         { error: 'This user signs in with VerifyAi credentials. Their password is managed in the VerifyAi dashboard.' },
         { status: 400 }
       );
+    }
+
+    // Set or clear the SSO identity link on its own, for accounts that keep a
+    // local password. (The 'verifyai' branch above already set it.)
+    if (verifyai_email !== undefined && auth_source !== 'verifyai') {
+      const v = String(verifyai_email || '').trim().toLowerCase();
+      if (v && verifyAiEmailTaken(users, v, user_id)) {
+        return Response.json({ error: 'That VerifyAi email is already linked to another user' }, { status: 409 });
+      }
+      if (v) users[idx].verifyai_email = v;
+      else delete users[idx].verifyai_email;
     }
 
     if (password && users[idx].auth_source !== 'verifyai') {

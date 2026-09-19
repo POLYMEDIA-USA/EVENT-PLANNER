@@ -1,7 +1,7 @@
 # FunnelFlow - Technical Manual
 
-**App Version:** 0.11.0
-**Last Updated:** 2026-09-17
+**App Version:** 0.11.1
+**Last Updated:** 2026-09-19
 
 ---
 
@@ -396,6 +396,14 @@ locally via jose's `createRemoteJWKSet()` (key fetched once and cached - no
 callback to Portal per request) with a required issuer of
 `https://portal.verifyai.net`.
 
+**Identity link (`verifyai_email`).** A person's FunnelFlow account is often created under one
+address while their VerifyAi login is another (`domp@parametrik.net` vs `domp@verifyai.net`).
+Portal's token carries the VerifyAi address, so matching on account email alone makes them look
+like a stranger. Setting `verifyai_email` links the two. It is independent of `auth_source`: a
+`local` account keeps its own password **and** resolves from a Portal cookie. Admins set it on the
+Users page ("VerifyAi Email"); the API rejects a value already used as another account's `email`
+or `verifyai_email`, since a Portal identity must resolve to exactly one account.
+
 **FunnelFlow is a deliberate partial case of the fleet contract.** The other
 five siblings force an unauthenticated visitor to redirect to Portal's login.
 FunnelFlow does **not**: its whole point is serving reps who arrive at a live
@@ -411,7 +419,8 @@ cookie is an accelerator only:
 3. Server: verify verifyai_session against Portal's JWKS (issuer-checked)
        |      invalid/absent/expired -> 401 reason='no_cookie'
        |
-4. Server: find LOCAL user by the token's email (case-insensitive)
+4. Server: find LOCAL user by the token's email (case-insensitive); if none,
+       |      fall back to matching it against users' verifyai_email
        |      no match -> 401 reason='no_local_account' + portal_email
        |      (NO auto-provisioning - Portal's cookie proves identity, not authorization)
        |
@@ -723,8 +732,8 @@ Tracks which users (staff) are working each event. Records live in `user_event_a
 | GET | `/api/settings` | Yes | Admin | Get app settings |
 | POST | `/api/settings` | Yes | Admin | Update app settings |
 | GET | `/api/settings/users` | Yes | Admin | List all users |
-| POST | `/api/settings/users` | Yes | Admin | Create user. `auth_source='verifyai'` (+ optional `verifyai_email`) creates a VerifyAi-linked account and needs no `password`; otherwise `password` is required |
-| PUT | `/api/settings/users` | Yes | Admin | Update user. `auth_source` switches sign-in method both ways (to `local` requires a password; to `verifyai` drops `password_hash` and is refused if it would leave no local admin). Sending `password` for a VerifyAi account returns 400 |
+| POST | `/api/settings/users` | Yes | Admin | Create user. `auth_source='verifyai'` (+ optional `verifyai_email`) creates a VerifyAi-linked account and needs no `password`; otherwise `password` is required. A local account may also carry `verifyai_email` as an SSO identity link. 409 if that address is already another account's `email`/`verifyai_email` |
+| PUT | `/api/settings/users` | Yes | Admin | Update user. `auth_source` switches sign-in method both ways (to `local` requires a password; to `verifyai` drops `password_hash` and is refused if it would leave no local admin). `verifyai_email` can be set or cleared (send an empty string) on its own without changing `auth_source`; switching to `local` no longer clears it. Sending `password` for a VerifyAi account returns 400; a duplicate `verifyai_email` returns 409 |
 | DELETE | `/api/settings/users` | Yes | Admin | Delete user |
 
 #### Other
@@ -1100,7 +1109,7 @@ gcloud storage cat gs://corpmarketer-bucket/customers.json --project=corpmarkete
 | `email` | string | Login email (case-insensitive matching) |
 | `password_hash` | string | PBKDF2-SHA512 hash (`salt:hash` format). Absent on `auth_source='verifyai'` accounts |
 | `auth_source` | string | `local` (default when absent) or `verifyai` - which credential store checks this user's password (section 5) |
-| `verifyai_email` | string | VerifyAi dashboard email used for the credential check; defaults to `email` |
+| `verifyai_email` | string | The account's VerifyAi identity. Two jobs: the email used for the credential check on `auth_source='verifyai'` accounts (defaults to `email`), and the **SSO identity link** — a `local` account may carry one so a Portal cookie issued for a different address still resolves to it. Must be unique across every account's `email` and `verifyai_email` |
 | `session_token` | string | Active session token (base64url) |
 | `full_name` | string | Display name |
 | `phone` | string | Phone number |

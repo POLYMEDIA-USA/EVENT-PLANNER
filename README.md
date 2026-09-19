@@ -39,6 +39,24 @@ the optional settings. Application-level secrets (SMTP, Vonage) are **not** env 
 
 Newest first. Every release is tagged `vX.Y.Z` — tags are the rollback mechanism.
 
+### v0.11.1 (2026-09-19) — SSO matches people whose VerifyAi login differs from their account email
+
+- BUGFIX: **single sign-on failed for anyone whose FunnelFlow account was created under a
+  different address than their VerifyAi login.** `POST /api/auth/portal-session` matched Portal's
+  identity against `email` only, so an admin registered as `name@parametrik.net` who signs in to
+  VerifyAi as `name@verifyai.net` was treated as a stranger and sent to the registration form. It
+  now falls back to `verifyai_email`, the explicit identity link. An exact account-email match
+  still wins, so no existing sign-in changes.
+- IMPROVEMENT: **`verifyai_email` can now be set on a local-password account.** Previously the
+  field could only be set by switching someone to VerifyAi credentials, which deleted their local
+  password — a heavy price for what is only an identity link. The Users page has a new
+  **VerifyAi Email** field that works in either sign-in mode, so an account can keep its own
+  password and still be reachable by single sign-on. Switching an account back to a local password
+  no longer clears the link.
+- SECURITY: **a VerifyAi email can only be linked to one account.** Create and update both return
+  409 if the address is already another account's login email or identity link, because a Portal
+  identity matching two accounts would resolve by array order.
+
 ### v0.11.0 (2026-09-17) — VerifyAi sign-in and fleet single sign-on
 
 _Live on revision `corpmarketer-00067-bk2`._
