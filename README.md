@@ -4,8 +4,8 @@ Corporate event lead-tracking, invitation management and sales-funnel platform (
 tool, formerly "CorpMarketer"). Next.js 14 App Router on Cloud Run; all data lives in JSON files in
 Google Cloud Storage — there is no database.
 
-- **Live:** https://corpmarketer-678407058536.us-central1.run.app (subdomain
-  `events.verifyai.net` pending DNS)
+- **Live:** https://events.verifyai.net (also
+  https://corpmarketer-678407058536.us-central1.run.app, without Portal SSO)
 - **Developer manual:** [TECHNICAL_MANUAL.md](TECHNICAL_MANUAL.md)
 - **Deploy commands:** [DEPLOY.md](DEPLOY.md) · release checklist:
   [docs/claude/DEPLOYMENT_RULES.md](docs/claude/DEPLOYMENT_RULES.md)
@@ -72,11 +72,9 @@ _Live on revision `corpmarketer-00067-bk2`._
   admin out of every internal tool at once. Password-reset paths (`forgot-password`,
   `reset-password`, and an admin setting a password) now refuse VerifyAi-linked accounts instead of
   silently hashing a password that would never be checked.
-- NOTE: one item from this work is **not** done and needs Dave: mapping `events.verifyai.net` to the
-  Cloud Run service, which needs a `gcloud beta run domain-mappings create` run as
-  `dave@parametrik.net` plus a CNAME in Squarespace DNS. Portal's cookie is `Domain=verifyai.net`,
-  so **SSO only starts working once the app is served from that subdomain** — the VerifyAi password
-  login and the gated registration in this release work on the current `*.run.app` URL today.
+- NOTE: **SSO only works on `https://events.verifyai.net`**, mapped and cert-issued 2026-09-17 and
+  verified end to end with a real Portal cookie. Portal's cookie is `Domain=verifyai.net`, so it is
+  never sent to the `*.run.app` URL; that URL still serves the app with the ordinary login form.
 
 ### v0.10.0 – v0.10.11 (2026-04-23 → 2026-04-25) — team attendance and training mode
 

@@ -8,6 +8,20 @@ record: what arrived, and what this repo did about it.
 
 ---
 
+# 2026-09-19 — Status: closed. Nothing outstanding in either direction.
+
+The "Handed back to Dave (not done)" section in the entry below is **superseded**:
+`events.verifyai.net` was mapped by Dave on 2026-09-17, its cert issued ~26 min later, and the
+Access Portal session verified the SSO happy path against it that day (a real `verifyai_session`
+cookie -> `POST /api/auth/portal-session` -> 200 `sso:true`, matched to `dave@verifyai.net`).
+
+Inbound since then: Portal's 2026-09-17 ack. They added a load-bearing-contract comment on their
+`ISSUER` constant (any change requires messaging every sibling with live SSO first) and confirmed
+`payload.email` is unconditionally present in every token they mint — both of the contract details
+FunnelFlow depends on. No action required.
+
+---
+
 # 2026-09-17 — Intake: both Access Portal messages actioned in v0.11.0
 
 **Status: implemented, tagged `v0.11.0`, deployed and verified live on revision

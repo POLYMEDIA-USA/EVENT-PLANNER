@@ -25,7 +25,8 @@
   force-redirects visitors to Portal, because event-floor reps have no account anywhere yet and
   Portal has no self-registration. Portal's cookie is consumed in exactly one route
   (`/api/auth/portal-session`) and never auto-provisions. At least one admin must always keep a local
-  password; the API enforces it. SSO is deployed but dormant until `events.verifyai.net` is mapped.
+  password; the API enforces it. Served from `https://events.verifyai.net` (mapped and cert-issued
+  2026-09-17); SSO verified end to end with a real Portal cookie that day.
 - **v0.10.11** — prior production state (revision `corpmarketer-00066-nkc` — the rollback target; `00065-ssx` was misrecorded as live in older notes). Training arrival alerts tagged `[TRAINING]`. Full v0.10.x training/event-fidelity stack: in_the_room status, auto-migrate after event close, arrival alerts to assigned rep + supervisor, training data generator, training reset, training email simulation (HTML stored, no SMTP), Print/PDF on email preview, auto-confirmation when training lead status flips to accepted, shared interaction visibility across all roles, multi-session auth, reusable email templates, sender-signature, Team page email panel + column sort + emails-sent column.
 - **v0.10.0** — Team Attendance feature: invite/confirm/check-in staff per event. New `user_event_attendance.json`, shared QR namespace with leads, SMS RSVP via Vonage, Reports → Team tab.
 - **v0.9.3** — QR auto-gen for manually-accepted leads + resend-confirmation.
@@ -36,7 +37,8 @@
 
 ## Project Quickref
 
-- **Live URL:** https://corpmarketer-678407058536.us-central1.run.app
+- **Live URL:** https://events.verifyai.net (SSO works here) — also reachable at https://corpmarketer-678407058536.us-central1.run.app, where Portal SSO
+  cannot work because the `Domain=verifyai.net` cookie is never sent to a `*.run.app` origin
 - **Admin login:** `dave@verifyai.net`
 - **GCP project:** `corpmarketer-app` / bucket `corpmarketer-bucket` / region `us-central1`
 - **Deploy commands:** [DEPLOY.md](DEPLOY.md)
