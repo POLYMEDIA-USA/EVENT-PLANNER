@@ -1,18 +1,46 @@
 # Session State
 
 ## Current Version
-- Version: **0.11.0** (tagged `v0.11.0` at commit `5409eac`, pushed to `origin/main`)
+- Version: **0.11.1** (tagged `v0.11.1` at commit `d8cae94`, pushed to `origin/main`)
 - Branch: `main`
-- Last session: 2026-09-17
+- Last session: 2026-09-19
 
 ## Deployed To
 - Cloud Run `corpmarketer` / project `corpmarketer-app` / region `us-central1`
-- Revision: **`corpmarketer-00067-bk2`, 100% traffic** (v0.11.0, deployed 2026-09-17). Previous:
-  `corpmarketer-00066-nkc` (v0.10.11) — that is the rollback target, not `00065-ssx`, which
-  earlier notes in this file wrongly recorded as live.
-- Build: `fef2e10a-2b60-423b-a762-7c3ed7a880e2` (SUCCESS)
-- Live URL: https://corpmarketer-678407058536.us-central1.run.app
-- Service is configured `latestRevision: true`, so a deploy moves traffic on its own.
+- Revision: **`corpmarketer-00068-467`, 100% traffic** (v0.11.1, deployed 2026-09-19).
+  Rollback target: `corpmarketer-00067-bk2` (v0.11.0).
+- Build: `f4fc8881-b757-4109-938d-8c766b6ed9fa` (SUCCESS)
+- Live URL: https://events.verifyai.net (SSO works here) and
+  https://corpmarketer-678407058536.us-central1.run.app (no SSO — the `Domain=verifyai.net`
+  cookie never reaches a `*.run.app` origin)
+
+## v0.11.1 — SSO identity link (2026-09-19)
+
+Reported by the Access Portal session: `domp@verifyai.net` could not sign in to FunnelFlow from
+Portal. Confirmed against the code and the live `users.json` — his account is
+`domp@parametrik.net` (admin, local password, created 2026-03-16, no `verifyai_email`), and the
+SSO exchange matched Portal's identity on `email` only.
+
+- `POST /api/auth/portal-session` now matches `email` first, then falls back to `verifyai_email`.
+- `verifyai_email` is settable on a **local-password** account. Portal's suggested fix was to set
+  it through the existing PUT, but that only worked inside the `auth_source==='verifyai'` branch,
+  which deletes `password_hash` — linking an identity would have silently cost an admin his
+  local password and made him dependent on VerifyAi being up. It is an identity link, not a
+  credential, so it is now independent of `auth_source`; switching back to `local` keeps it.
+- New uniqueness guard: 409 if a `verifyai_email` is already another account's `email` or
+  `verifyai_email` (two matches would resolve by array order).
+- Users page has a **VerifyAi Email** field in both sign-in modes.
+
+Verified live on `corpmarketer-00068-467`: `GET /` 200; exchange with no cookie still
+`no_cookie`; wrong-password login still 401; `PUT /api/settings/users` unauthenticated still 403.
+Match logic unit-checked against fixtures (link-only match resolves, an exact account email beats
+someone else's link, primary path unchanged, unknown stays null).
+
+**Open, needs Dave:** set `verifyai_email: domp@verifyai.net` on
+`6586f375-0aaf-4b78-b7b7-db900b003abc` — one field on the Users page, or say the word and this
+session will PUT it. Deliberately not done from a peer session's request: it is production user
+data. Until it is set, domp still signs in with his FunnelFlow password as before; SSO is what is
+blocked, not his access.
 
 ### v0.11.0 live verification (2026-09-17, against `corpmarketer-00067-bk2`)
 
@@ -125,6 +153,35 @@ The 0.10 minor introduced Team Attendance + the training/training-fidelity workf
 **Closed this session:** `events.verifyai.net` (mapped by Dave, CNAME propagated, cert issued ~26
 min later, `Ready` / `CertificateProvisioned` / `DomainRoutable` all `True`) and the deploy
 credential blocker (see below). Fleet SSO is live, not pending.
+
+## Automation-SA grant probe across the fleet (measured 2026-09-19)
+
+RMA-MANAGER's SESSION_STATE claims **ALL** GCP-deploying repos were granted the automation SA on
+2026-08-23. `corpmarketer-app` was on that list and had zero bindings (found 2026-09-17), so the
+whole list was worth measuring. Two read-only probes per project, as the SA:
+
+| Project | Cloud Run access | `serviceusage` (proxy for `builds submit`) |
+|---|---|---|
+| rma-manager-489912 | ok | **missing** |
+| verifyai-access-portal | ok | ok |
+| anydesk-manager-app | ok | **missing** |
+| verifyai-backoffice | ok | **missing** |
+| contract-manager-pmd | ok | **missing** |
+| corpmarketer-app | ok | ok (granted by this repo 2026-09-17) |
+| verifyai-onboarding-tracker | ok | ok |
+| parametrik-website | **NOT GRANTED** | n/a |
+| verifyai-propose-close | ok | **missing** |
+| v2-webapp (TEST2-WEB) | ok | **missing** |
+| verifyai-website | ok | ok |
+
+**Limits of this measurement, stated rather than glossed:** `gcloud services list` needs
+`serviceusage.services.list`, so a **missing** strongly implies no
+`roles/serviceusage.serviceUsageConsumer` (and therefore a failing headless `gcloud builds
+submit`), while an **ok** could come from some other role. Cloud Run access says nothing about
+build permissions. Nothing here proves a deploy works end to end; only a real build does.
+
+Relayed to RMA-MANAGER in [MESSAGE_TO_RMA-MANAGER.md](MESSAGE_TO_RMA-MANAGER.md). Their own
+project is one of the six missing the sixth role.
 
 ## Fleet subdomain state (measured 2026-09-17 — all six live, nothing outstanding)
 
