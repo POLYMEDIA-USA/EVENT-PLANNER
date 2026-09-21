@@ -18,8 +18,15 @@
 
 ## Verified Baselines (immutable — don't second-guess)
 
-- **v0.11.0** — current production state (revision `corpmarketer-00067-bk2`, 100% traffic,
-  deployed 2026-09-17). VerifyAi sign-in (`auth_source` of `local`/`verifyai`, VerifyAi auth-api used
+- **v0.11.1** — current production state (revision `corpmarketer-00068-467`, 100% traffic, deployed
+  2026-09-20). SSO identity link: `POST /api/auth/portal-session` matches Portal's identity against
+  `email` first and falls back to `verifyai_email`, so someone whose FunnelFlow account was created
+  under one address but who signs in to VerifyAi under another still resolves. `verifyai_email` is an
+  identity link, **not** a credential — it can be set on a local-password account without changing
+  `auth_source`, and switching back to `local` no longer clears it. A given VerifyAi address may be
+  linked to only one account (409 otherwise), because two matches would resolve by array order.
+- **v0.11.0** — prior production state (revision `corpmarketer-00067-bk2`, deployed 2026-09-17,
+  rollback target). VerifyAi sign-in (`auth_source` of `local`/`verifyai`, VerifyAi auth-api used
   strictly as a yes/no credential oracle), VerifyAi-gated self-registration (open registration is
   closed), and Access Portal fleet SSO as a **deliberate partial case** — FunnelFlow never
   force-redirects visitors to Portal, because event-floor reps have no account anywhere yet and
